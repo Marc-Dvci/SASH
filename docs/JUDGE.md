@@ -68,7 +68,7 @@ dropped against 72,099 kept. `docs/PRIVACY.md`.
 
 ```bash
 pytest                                            # 136 tests
-sash bench --homes 24 --nulls 40 --days 120       # about 7 minutes
+sash bench --homes 24 --nulls 40 --days 120       # about 9 minutes
 ```
 
 The benchmark scores against `simulator/home.py`, a single-zone mass balance SASH

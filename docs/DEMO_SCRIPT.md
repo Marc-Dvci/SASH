@@ -33,7 +33,7 @@ Four movements, in the order a judge's attention is worth spending.
 | # | On screen | Narration |
 |---|---|---|
 | 1 | Now tab, brand | Two windows in the same room can differ by a factor of five in how much street pollution they let in. Nobody can tell which is which. SASH measures it, from three Ring devices, without ever looking at an image. |
-| 2 | The decision headline | This is a real decision, taken now, for a flat with three openings. Open the courtyard window at eleven, for fifty-seven minutes. |
+| 2 | The decision headline | This is a real decision, taken now, for a flat with three openings. Open the courtyard window, at this time, for this long. |
 | 3 | The intake comparison | It is compared against what this household actually does. The street window it usually reaches for would admit about half as much again, for the same amount of air. |
 | 4 | The paired-draw confidence bar | And SASH says how sure it is. Both plans are forecast together on each bootstrap draw, so they share the same weather and the same day, and what is left is the difference between the two windows. |
 | 5 | Why now | SASH never changes how much air the home gets. The target is this household's own median. It moves when you air, and which window, and nothing else. |
@@ -43,8 +43,8 @@ Four movements, in the order a judge's attention is worth spending.
 | 9 | Timeline, **Advance 30 min** clicked | Now watch Ring deliver. Every event here is a signed webhook through the shipping receiver, and every reading is fetched by the same client that would call Ring. |
 | 10 | The timeline redraws | The readings arrive, the model refits, and the plan moves with them. |
 | 11 | Now tab, **Publish this plan** clicked | A recommendation nobody writes down cannot be wrong later. So SASH publishes the plan, with its forecast and its interval, before the airing happens. |
-| 12 | **The household follows it**, then **Advance 4 h** | The household opens it. The flat is re-integrated with that window open, on the weather and the street that were already drawn, so the readings afterwards are what it would really have measured. |
-| 13 | **Advance 4 h**, Record tab, the ledger | And it gets scored against readings it genuinely produced. SASH takes the credit and the blame only for airings it proposed and that actually happened. |
+| 12 | **The household follows it**, then **Advance 4 h** started | The household opens it. The flat is re-integrated with that window open, on the weather and the street that were already drawn, so the readings afterwards are what it would really have measured. |
+| 13 | Record tab, the settled ledger | And it gets scored against readings it genuinely produced. SASH takes the credit and the blame only for airings it proposed and that actually happened. |
 | 14 | The held-out backtest | Above it, the harder version. The model is fitted on the first part of this home's record and asked to price every airing in the last part before seeing what it cost. |
 | 15 | Back to the verdict card | Across twenty-four simulated households it has never seen, SASH beat the household's own habit on seventy-one of ninety-four airings. On forty homes whose windows are physically identical, it announced a difference on two, at a nominal five per cent. |
 | 16 | Setup tab, the privacy panel | All of it from a camera it never looks through. The Ring client carries a path allowlist, and the test suite walks every media endpoint against a server that would have answered. |
@@ -58,9 +58,10 @@ of the API.** Beat 15 is the only one that quotes figures from elsewhere, and
 those are reproducible with `sash bench --homes 24 --nulls 40 --days 120
 --seed 1`.
 
-**The demo clicks the product's own buttons.** Beats 9, 11, 12 and 13 press
-Advance, Publish, Follow and Advance again. Nothing is faked, and if a button
-breaks the recording breaks with it.
+**The demo clicks the product's own buttons.** Beats 9, 11 and 12 press Advance,
+Publish, Follow and Advance again, and beat 13 waits on the product's own busy
+flag rather than on a fixed sleep. Nothing is faked, and if a button breaks the
+recording breaks with it.
 
 **Beat 4 exists because beat 3 is a claim.** Showing a saving without showing how
 sure it is would be the version of this product a judge should not reward.

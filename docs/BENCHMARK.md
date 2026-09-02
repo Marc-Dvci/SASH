@@ -14,7 +14,7 @@ sash bench --homes 24 --nulls 40 --days 120 --seed 1
 ```
 
 Results below are that command, verbatim, from `bench/results/`. It takes about
-seven minutes.
+nine minutes.
 
 ---
 
