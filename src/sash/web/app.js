@@ -641,6 +641,9 @@ function renderDevices(d) {
 async function refresh() {
   if (state.busy) return;
   state.busy = true;
+  /* The guided walkthrough waits on this rather than on a fixed sleep, so a
+   * slow refit moves the beat rather than desynchronising the narration. */
+  document.body.dataset.busy = '1';
   try {
     const [status, rec] = await Promise.all([get('/api/status'), get('/api/recommendation')]);
     renderLive(status);
@@ -664,6 +667,7 @@ async function refresh() {
     toast('Could not reach SASH: ' + e.message);
   } finally {
     state.busy = false;
+    delete document.body.dataset.busy;
   }
 }
 

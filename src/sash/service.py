@@ -287,12 +287,20 @@ class Household:
             "backtest": self.backtest().as_dict(),
         }
 
+    #: How much a record has to grow before the held-out replay is worth
+    #: running again. The replay is over months of a household's life and three
+    #: more readings do not move it, but it costs three fits and a calibration,
+    #: so recomputing it on every arriving webhook makes the Record tab take
+    #: fifteen seconds to answer for a number that has not changed.
+    BACKTEST_REFRESH_FRACTION = 0.01
+
     def backtest(self) -> holdout.Backtest:
-        """The held-out replay. Expensive, so cached against the same fingerprint
-        as the view and rebuilt only when new data has actually arrived."""
+        """The held-out replay, cached until the record has meaningfully grown."""
         stamp = self._fingerprint()
-        if self._backtest is not None and stamp == self._backtest_stamp:
-            return self._backtest
+        if self._backtest is not None:
+            grown = sum(stamp) - sum(self._backtest_stamp)
+            if grown < max(sum(self._backtest_stamp), 1) * self.BACKTEST_REFRESH_FRACTION:
+                return self._backtest
         view = self.view()
         openings = [
             (d.device_id, d.label or d.ring_name, d.orientation)

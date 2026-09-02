@@ -109,7 +109,7 @@ const DEMO = (() => {
       run: async () => {
         await tab('now');
         await clickIt('#publish', 'Publish this plan');
-        await sleep(600);
+        await waitIdle(5000);
       },
     },
     {
@@ -119,9 +119,10 @@ const DEMO = (() => {
       seconds: 11,
       run: async () => {
         await clickIt('#follow', 'The household follows it');
-        await sleep(900);
+        await waitIdle(4000);
         // Four hours, because a plan cannot be scored until its window and the
-        // ninety minutes of recovery after it have both gone past.
+        // ninety minutes of recovery after it have both gone past. The click
+        // returns immediately; the next beat waits for the work.
         await clickIt('#advance-long', 'Advance 4 h');
       },
     },
@@ -130,9 +131,12 @@ const DEMO = (() => {
          + "credit and the blame only for airings it proposed and that actually happened.",
       seconds: 10,
       run: async () => {
-        await clickIt('#advance-long', 'Advance 4 h');
+        // The advance the previous beat started has to land before the ledger
+        // can show a settled plan, because settling happens when the ledger is
+        // read.
+        await waitIdle(7500);
         await tab('record');
-        await spotlight('#ledger', 'The ledger');
+        await spotlight('#ledger-summary', 'This session, scored');
       },
     },
     {
@@ -200,6 +204,25 @@ const DEMO = (() => {
     cursor.style.transform =
       `translate(${box.left + box.width / 2}px, ${box.top + box.height / 2}px)`;
     await sleep(360);
+  }
+
+  /** Wait until the page has finished refetching and refitting.
+   *
+   * Pressing Advance delivers a few hundred webhooks and then refits the whole
+   * household, and on a slow machine that is longer than the beat that pressed
+   * it. Waiting on the product's own busy flag keeps the visuals behind the
+   * voice instead of ahead of it, and caps the wait so a stall cannot eat the
+   * rest of the walkthrough. */
+  async function waitIdle(maxMs = 9000) {
+    const until = performance.now() + maxMs;
+    while (performance.now() < until) {
+      const busy = document.body.dataset.busy
+        || $('#advance-long')?.disabled
+        || $('#advance')?.disabled;
+      if (!busy) return true;
+      await sleep(200);
+    }
+    return false;
   }
 
   async function clickIt(selector, label) {

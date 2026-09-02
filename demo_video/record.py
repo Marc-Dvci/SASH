@@ -21,6 +21,7 @@ import json
 import pathlib
 import shutil
 import socket
+import statistics
 import subprocess
 import sys
 import time
@@ -138,16 +139,57 @@ def record(url: str, timing: dict) -> pathlib.Path:
     return source
 
 
-def mux(video: pathlib.Path, audio: pathlib.Path, out: pathlib.Path) -> None:
-    """Pad or trim the audio to the video, fade both ends, encode H.264/AAC."""
-    v_len = probe_duration(video)
+def find_start(video: pathlib.Path, *, look: float = 40.0) -> float:
+    """When the walkthrough actually begins, in seconds into the capture.
+
+    Playwright starts recording when the context is created, so the capture
+    opens with the page loading and the first fit running. On a busy machine
+    that is several seconds, and leaving it in is how a 174-second narration
+    becomes a 183-second file that a judge is not required to watch the end of.
+
+    The walkthrough announces itself: the spotlight lays a large dark scrim over
+    the whole page, so average luminance steps down and stays down. That step is
+    what this finds, rather than a guess about how slow the machine was.
+    """
+    out = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(video), "-t", f"{look:g}",
+         "-vf", "fps=4,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-",
+         "-f", "null", "-"],
+        capture_output=True, text=True,
+    )
+    samples: list[tuple[float, float]] = []
+    stamp = None
+    for line in out.stdout.splitlines():
+        if line.startswith("frame:"):
+            stamp = float(line.rsplit("pts_time:", 1)[1])
+        elif "YAVG=" in line and stamp is not None:
+            samples.append((stamp, float(line.rsplit("=", 1)[1])))
+    if len(samples) < 12:
+        return 0.0
+    baseline = statistics.median(v for _t, v in samples[:8])
+    threshold = baseline - 1.0
+    for i in range(len(samples) - 2):
+        if all(samples[i + k][1] < threshold for k in range(3)):
+            # Back off one sample, so the scrim fading in is inside the file.
+            return max(0.0, samples[i][0] - 0.25)
+    return 0.0
+
+
+def mux(video: pathlib.Path, audio: pathlib.Path, out: pathlib.Path, length: float) -> None:
+    """Trim the capture to the walkthrough, lay the narration on it, encode."""
+    start = find_start(video)
+    available = probe_duration(video) - start
+    span = min(length, available)
+    print(f"trimming {start:.2f}s of page load, keeping {span:.1f}s")
     run_ffmpeg([
         "ffmpeg", "-y", "-loglevel", "error",
-        "-i", str(video),
+        "-ss", f"{start:.3f}", "-i", str(video),
         "-i", str(audio),
         "-filter_complex",
-        f"[0:v]fade=t=in:st=0:d=0.5,fade=t=out:st={max(v_len - 0.7, 0):.2f}:d=0.7[v];"
-        f"[1:a]apad,atrim=0:{v_len:.2f},afade=t=out:st={max(v_len - 0.7, 0):.2f}:d=0.7[a]",
+        f"[0:v]trim=0:{span:.3f},setpts=PTS-STARTPTS,"
+        f"fade=t=in:st=0:d=0.5,fade=t=out:st={max(span - 0.7, 0):.2f}:d=0.7[v];"
+        f"[1:a]apad,atrim=0:{span:.3f},asetpts=PTS-STARTPTS,"
+        f"afade=t=out:st={max(span - 0.7, 0):.2f}:d=0.7[a]",
         "-map", "[v]", "-map", "[a]",
         "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
@@ -186,7 +228,7 @@ def main() -> int:
             except subprocess.TimeoutExpired:  # pragma: no cover
                 server.kill()
 
-    mux(raw, narration, OUT)
+    mux(raw, narration, OUT, timing["total"] + TAIL_SECONDS)
     length = probe_duration(OUT)
     print(f"wrote {OUT}  ({length:.1f}s)")
     if length > 180:
