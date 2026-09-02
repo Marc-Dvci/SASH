@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SASH</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1418'/><rect x='7' y='6' width='18' height='20' rx='1.5' fill='none' stroke='%2354d6c2' stroke-width='2'/><line x1='7' y1='16' x2='25' y2='16' stroke='%2354d6c2' stroke-width='2'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="6" y="4" width="20" height="24" rx="2" class="frame"/>
+      <line x1="6" y1="17" x2="26" y2="17" class="frame"/>
+      <path d="M9 21 q5 -3 10 0 t8 -1" class="draught"/>
+      <path d="M9 24 q5 -3 10 0 t8 -1" class="draught delay"/>
+    </svg>
+    <div>
+      <h1>SASH</h1>
+      <p class="tagline">Street Air, Sensed at Home</p>
+    </div>
+  </div>
+
+  <div class="live" id="live-strip"></div>
+
+  <div class="topbar-actions">
+    <button id="advance" class="ghost" title="Run the simulated household forward and deliver the Ring events">
+      Advance 30 min
+    </button>
+    <button id="advance-long" class="ghost" title="Run the household forward far enough for a published plan to run its course and be scored">
+      Advance 4 h
+    </button>
+  </div>
+</header>
+
+<div class="synthetic-banner" id="synthetic-banner" hidden>
+  <strong>Simulated household.</strong>
+  <span>Every reading below arrived through the shipping ingest path from the bundled
+  Ring simulator: signed webhooks and <code>GET /v1/devices/{id}/status</code>. No real home.</span>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-view="now" class="active">Now</button>
+  <button data-view="windows">Windows</button>
+  <button data-view="timeline">Timeline</button>
+  <button data-view="record">Record</button>
+  <button data-view="setup">Setup</button>
+</nav>
+
+<main>
+
+<!-- ===================== NOW ===================== -->
+<section id="view-now" class="view active">
+  <div class="grid-now">
+
+    <article class="card decision" id="decision">
+      <div class="skeleton">Working out the best opening…</div>
+    </article>
+
+    <article class="card" id="demand-card">
+      <h2>Why now</h2>
+      <div id="demand-body" class="skeleton">…</div>
+    </article>
+
+    <article class="card" id="alternatives-card">
+      <h2>What else was considered</h2>
+      <p class="hint" id="alternatives-hint">…</p>
+      <div id="alternatives" class="skeleton">…</div>
+    </article>
+
+    <article class="card" id="street-card">
+      <h2>The street, by hour</h2>
+      <p class="hint">Vehicle-motion events per minute from the outdoor camera. The planner
+      forecasts from this: it is this street's own rhythm, not a prediction of the street. A
+      road closure or a delivery surge will not be in it.</p>
+      <div id="street-profile"></div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ===================== WINDOWS ===================== -->
+<section id="view-windows" class="view">
+  <div class="card verdict-card" id="verdict-card">
+    <h2>Is one opening actually better?</h2>
+    <div id="verdicts" class="skeleton">…</div>
+  </div>
+  <div id="openings" class="grid-openings"></div>
+  <div class="card" id="home-card">
+    <h2>The home itself</h2>
+    <div id="home-body" class="skeleton">…</div>
+  </div>
+</section>
+
+<!-- ===================== TIMELINE ===================== -->
+<section id="view-timeline" class="view">
+  <div class="card">
+    <div class="card-head">
+      <h2>Last 24 hours</h2>
+      <div class="seg" id="timeline-range">
+        <button data-hours="24" class="active">24h</button>
+        <button data-hours="72">3d</button>
+        <button data-hours="168">7d</button>
+      </div>
+    </div>
+    <div id="timeline"></div>
+    <div class="legend">
+      <span><i class="sw pm"></i>Indoor PM2.5</span>
+      <span><i class="sw street"></i>Vehicle-motion events</span>
+      <span><i class="sw open"></i>Opening open</span>
+      <span><i class="sw source"></i>Indoor emission detected</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Events</h2>
+    <div id="events" class="skeleton">…</div>
+  </div>
+</section>
+
+<!-- ===================== RECORD ===================== -->
+<section id="view-record" class="view">
+  <div class="card">
+    <h2>Priced before it happened</h2>
+    <p class="hint">The hard version of the question. SASH is fitted on the first part of this
+    home's record and then asked to price every airing in the last part, before seeing what it
+    cost. Nothing below was in the fit.</p>
+    <div id="backtest" class="skeleton">…</div>
+  </div>
+  <div class="card">
+    <h2>This session's plans</h2>
+    <p class="hint">Every plan SASH published while it has been running, scored against what the
+    readings afterwards actually showed. A plan the household did not act on is recorded and not
+    scored: SASH takes the credit and the blame only for airings it proposed and that happened.</p>
+    <div id="ledger-summary"></div>
+    <div id="ledger" class="skeleton">…</div>
+  </div>
+</section>
+
+<!-- ===================== SETUP ===================== -->
+<section id="view-setup" class="view">
+  <div class="card">
+    <h2>Health</h2>
+    <div id="health" class="skeleton">…</div>
+  </div>
+  <div class="card">
+    <h2>Devices</h2>
+    <p class="hint">Ring reports a contact sensor's state, not what it is attached to.
+    The mapping from device to opening lives here, in the application, which is where
+    Ring's own documentation says it belongs.</p>
+    <div id="devices" class="skeleton">…</div>
+  </div>
+  <div class="card">
+    <h2>What SASH reads, and what it never asks for</h2>
+    <div class="privacy">
+      <div class="priv ok">
+        <h3>Read</h3>
+        <ul>
+          <li><code>motion.vehicle</code> event times from the outdoor camera</li>
+          <li>Contact sensor open and closed transitions</li>
+          <li>Air Quality Monitor PM2.5, CO, temperature, humidity</li>
+          <li>Device online and offline lifecycle events</li>
+        </ul>
+      </div>
+      <div class="priv no">
+        <h3>Never requested</h3>
+        <ul>
+          <li>Video download</li>
+          <li>Image snapshots</li>
+          <li>Live streaming sessions</li>
+          <li>Any person, face or identity</li>
+        </ul>
+      </div>
+    </div>
+    <p class="hint">The Ring client carries a path allowlist. A call to any media
+    endpoint raises before a request is made, and the test suite walks every
+    documented media path against a server that would have answered.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <span id="footer-note"></span>
+</footer>
+
+<script src="/app.js"></script>
+<script src="/demo.js"></script>
+</body>
+</html>
