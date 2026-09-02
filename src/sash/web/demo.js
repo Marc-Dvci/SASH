@@ -32,8 +32,8 @@ const DEMO = (() => {
     },
     {
       say: "This is a real decision, taken now, for a flat with three openings. "
-         + "Open the courtyard window at eleven, for fifty-seven minutes.",
-      seconds: 9,
+         + "Open the courtyard window, at this time, for this long.",
+      seconds: 8,
       run: async () => { await spotlight('#decision .headline', 'The decision'); },
     },
     {

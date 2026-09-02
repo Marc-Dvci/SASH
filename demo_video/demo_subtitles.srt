@@ -3,61 +3,61 @@
 Two windows in the same room can differ by a factor of five in how much street pollution they let in. Nobody can tell which is which. SASH measures it, from three Ring devices, without ever looking at an image.
 
 2
-00:00:13,938 --> 00:00:23,172
-This is a real decision, taken now, for a flat with three openings. Open the courtyard window at eleven, for fifty-seven minutes.
+00:00:13,938 --> 00:00:23,220
+This is a real decision, taken now, for a flat with three openings. Open the courtyard window, at this time, for this long.
 
 3
-00:00:23,172 --> 00:00:32,670
+00:00:23,220 --> 00:00:32,718
 It is compared against what this household actually does. The street window it usually reaches for would admit about half as much again, for the same amount of air.
 
 4
-00:00:32,670 --> 00:00:44,592
+00:00:32,718 --> 00:00:44,640
 And SASH says how sure it is. Both plans are forecast together on each bootstrap draw, so they share the same weather and the same day, and what is left is the difference between the two windows.
 
 5
-00:00:44,592 --> 00:00:55,482
+00:00:44,640 --> 00:00:55,530
 SASH never changes how much air the home gets. The target is this household's own median. It moves when you air, and which window, and nothing else.
 
 6
-00:00:55,482 --> 00:01:09,948
+00:00:55,530 --> 00:01:09,996
 Here is the measurement that makes it possible. Carbon monoxide has no street in it. Between cooking events it is a decaying tracer, so regressing its decay rate on how open each window was gives that window's air exchange rate directly.
 
 7
-00:01:09,948 --> 00:01:20,478
+00:01:09,996 --> 00:01:20,526
 That is tracer gas decay, which normally needs a technician and a cylinder of gas. This household makes the tracer twice a day by cooking, and Ring already measures it.
 
 8
-00:01:20,478 --> 00:01:35,136
+00:01:20,526 --> 00:01:35,184
 And SASH refuses to over-claim. Every airing is held as it happened and only the label is shuffled. The courtyard window survives that. The balcony door does not, so SASH says these two are not yet distinguishable.
 
 9
-00:01:35,136 --> 00:01:44,562
+00:01:35,184 --> 00:01:44,610
 Now watch Ring deliver. Every event here is a signed webhook through the shipping receiver, and every reading is fetched by the same client that would call Ring.
 
 10
-00:01:44,562 --> 00:01:49,404
+00:01:44,610 --> 00:01:49,452
 The readings arrive, the model refits, and the plan moves with them.
 
 11
-00:01:49,404 --> 00:01:59,046
+00:01:49,452 --> 00:01:59,094
 A recommendation nobody writes down cannot be wrong later. So SASH publishes the plan, with its forecast and its interval, before the airing happens.
 
 12
-00:01:59,046 --> 00:02:09,816
+00:01:59,094 --> 00:02:09,864
 The household opens it. The flat is re-integrated with that window open, on the weather and the street that were already drawn, so the readings afterwards are what it would really have measured.
 
 13
-00:02:09,816 --> 00:02:18,786
+00:02:09,864 --> 00:02:18,834
 And it gets scored against readings it genuinely produced. SASH takes the credit and the blame only for airings it proposed and that actually happened.
 
 14
-00:02:18,786 --> 00:02:28,716
+00:02:18,834 --> 00:02:28,764
 Above it, the harder version. The model is fitted on the first part of this home's record and asked to price every airing in the last part before seeing what it cost.
 
 15
-00:02:28,716 --> 00:02:43,614
+00:02:28,764 --> 00:02:43,662
 Across twenty-four simulated households it has never seen, SASH beat the household's own habit on seventy-one of ninety-four airings. On forty homes whose windows are physically identical, it announced a difference on two, at a nominal five per cent.
 
 16
-00:02:43,614 --> 00:02:53,736
+00:02:43,662 --> 00:02:53,784
 All of it from a camera it never looks through. The Ring client carries a path allowlist, and the test suite walks every media endpoint against a server that would have answered.

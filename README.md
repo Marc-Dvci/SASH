@@ -44,6 +44,10 @@ documented endpoints and signs webhooks with the documented HMAC scheme, so
 83,800 signed webhooks go through `WebhookReceiver` and 21,810 status reads go
 through `RingClient` before you see a single number.
 
+Or watch it drive itself, narrated, at <http://127.0.0.1:8000/?demo=1>. That
+walkthrough is what the demo video records: it clicks the product's own buttons
+and reads the product's own numbers.
+
 Press **Advance 30 min** and Ring events arrive live. Press **Publish this plan**
 and then **The household follows it**, and the simulated flat is re-integrated
 with that window open, on the same weather and the same street that had already
@@ -177,6 +181,13 @@ tests/           136 tests
 docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK,
                  FRICTION_LOG, PRODUCT_FEEDBACK, AWS
 ```
+
+## Demo video
+
+`<YOUTUBE LINK>` — 174 seconds. Built by `demo_video/narrate.py` and
+`demo_video/record.py` around the walkthrough that ships in the product, so it is
+a recording of SASH rather than an animation of it. English subtitles in
+`demo_video/demo_subtitles.srt`.
 
 ## Status
 
