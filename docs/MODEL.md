@@ -239,13 +239,13 @@ the quantile of how far they landed from their forecasts in units of that shape.
 Coverage is then measured on a third slice that neither the fit nor the
 calibration has seen.
 
-On the benchmark that comes out at 89.3% coverage of a nominal 90% interval over
-2,185 held-out airings, which is the number that says the width is honest.
+On the benchmark that comes out at 88.6% coverage of a nominal 90% interval over
+3,517 held-out airings, which is the number that says the width is honest.
 
 The width itself is large, and the benchmark says why. Against the simulator's
-own ground truth, the median error of a **forecast** of one airing is 353
-micrograms per cubic metre times minutes on a median airing of 679, and the
-median error of the **retrospective measurement** of the same airing is 176. One
+own ground truth, the median error of a **forecast** of one airing is 354
+micrograms per cubic metre times minutes on a median airing of 682, and the
+median error of the **retrospective measurement** of the same airing is 178. One
 airing is hard to price in advance and hard to measure afterwards.
 
 This was worth chasing down, because the obvious explanation is wrong. Substituting
@@ -296,8 +296,8 @@ readings on either side of the airing, rather than carried over from whenever th
 model was last fitted. The sealed floor moves with the weather, and a
 counterfactual anchored to last month's floor measures the weather rather than
 the window. It is the fifteenth percentile of those quiet readings; against
-ground truth on the benchmark that measurement has a median bias of −30 on a
-median airing of 679.
+ground truth on the benchmark that measurement has a median bias of −39 on a
+median airing of 682.
 
 ---
 
