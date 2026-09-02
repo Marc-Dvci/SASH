@@ -299,7 +299,9 @@ def cmd_bench(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sash", description=__doc__)
-    parser.add_argument("--db", default=str(REPO_ROOT / "sash.sqlite"))
+    # The same file `demo_video/record.py` records against, so seeding it once
+    # serves both.
+    parser.add_argument("--db", default=str(REPO_ROOT / "demo.sqlite"))
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("demo", help="seed a household and serve the product")

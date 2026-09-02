@@ -61,7 +61,9 @@ def start_server(port: int, db: str) -> subprocess.Popen:
     process = subprocess.Popen(command, stdout=handle, stderr=subprocess.STDOUT, text=True)
     import urllib.request
 
-    deadline = time.time() + 900
+    # Seeding 120 days is minutes on an idle machine and can be three times
+    # that on a busy one, so this waits rather than guessing.
+    deadline = time.time() + 2400
     while time.time() < deadline:
         if process.poll() is not None:
             raise RuntimeError(

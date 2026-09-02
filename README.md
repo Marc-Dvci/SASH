@@ -178,8 +178,8 @@ simulator/       A Ring account: ground-truth physics, the documented endpoints,
                  and a replay through the real ingest path
 bench/           The benchmark and its results
 tests/           136 tests
-docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK,
-                 FRICTION_LOG, PRODUCT_FEEDBACK, AWS
+docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK, AWS,
+                 FRICTION_LOG, PRODUCT_FEEDBACK, DEMO_SCRIPT, JUDGE
 ```
 
 ## Demo video
