@@ -1,0 +1,345 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SASH on AWS. Ring delivers webhooks to API Gateway; a thin Lambda verifies the
+  signature, deduplicates on meta.request_id and returns 200 inside Ring's five
+  second budget. Everything slower happens behind SQS. A scheduled Lambda polls
+  each Air Quality Monitor. Bedrock phrases the decision card; it never decides it.
+
+  The shape mirrors the local process exactly: sash.ingest.Pipeline is already
+  SQS-shaped, so the queue is the one adapter that differs.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, prod]
+  RingApiBaseUrl:
+    Type: String
+    Default: https://api.amazonvision.com
+  BedrockModelId:
+    Type: String
+    Default: ""
+    Description: >
+      Leave empty to use the deterministic phrase renderer. Setting it switches
+      narrative.py to Bedrock for the wording only; the numbers are produced by
+      the estimator either way.
+  AlarmEmail:
+    Type: String
+    Default: ""
+    Description: Optional address for the CloudWatch alarms below.
+
+Conditions:
+  UseBedrock: !Not [!Equals [!Ref BedrockModelId, ""]]
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 512
+    Timeout: 20
+    Architectures: [arm64]
+    Tracing: Active
+    Environment:
+      Variables:
+        SASH_STAGE: !Ref Stage
+        RING_API_BASE_URL: !Ref RingApiBaseUrl
+        SASH_TABLE: !Ref SashTable
+        SASH_SECRET_ARN: !Ref RingSecret
+        POWERTOOLS_SERVICE_NAME: sash
+
+Resources:
+
+  # --- secrets -------------------------------------------------------------
+
+  RingKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: SASH Ring credentials
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root" }
+            Action: "kms:*"
+            Resource: "*"
+
+  RingSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "sash/${Stage}/ring"
+      Description: >
+        Ring client id and secret, the webhook HMAC signing key, and the current
+        refresh token. Nothing here is ever written to a log or to DynamoDB.
+      KmsKeyId: !Ref RingKey
+
+  # --- storage -------------------------------------------------------------
+
+  SashTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "sash-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      # Single table. pk is the household, sk carries the record kind and its
+      # time, so an interval scan is one query over a time range.
+      #   HOUSEHOLD#<id> / DEVICE#<device_id>
+      #   HOUSEHOLD#<id> / AQ#<reported_at>        <- the dedupe key, see below
+      #   HOUSEHOLD#<id> / VEHICLE#<t>#<event_id>
+      #   HOUSEHOLD#<id> / CONTACT#<t>#<device_id>
+      #   HOUSEHOLD#<id> / PLAN#<created_at>
+      #   RECEIPT#<request_id> / RECEIPT           <- idempotency, with a TTL
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # --- the queue between the two halves ------------------------------------
+
+  EventDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "sash-${Stage}-events-dlq"
+      MessageRetentionPeriod: 1209600
+
+  EventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "sash-${Stage}-events"
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EventDLQ.Arn
+        maxReceiveCount: 5
+
+  # --- the Ring half -------------------------------------------------------
+
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "sash-${Stage}-webhook"
+      CodeUri: ../src/
+      Handler: sash.aws.webhook_handler.handler
+      Timeout: 5
+      # Ring expects a 200 within five seconds and retries otherwise, so this
+      # function verifies the HMAC over the raw body, writes the request_id
+      # receipt conditionally, enqueues and returns. No analysis lives here.
+      Environment:
+        Variables:
+          SASH_QUEUE_URL: !Ref EventQueue
+      Policies:
+        - SQSSendMessagePolicy: { QueueName: !GetAtt EventQueue.QueueName }
+        - DynamoDBCrudPolicy: { TableName: !Ref SashTable }
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: !Ref RingSecret
+            - Effect: Allow
+              Action: [kms:Decrypt]
+              Resource: !GetAtt RingKey.Arn
+      Events:
+        Webhook:
+          Type: Api
+          Properties:
+            Path: /ring/webhook
+            Method: post
+            RestApiId: !Ref Api
+        Callback:
+          Type: Api
+          Properties:
+            Path: /ring/callback
+            Method: get
+            RestApiId: !Ref Api
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "sash-${Stage}-processor"
+      CodeUri: ../src/
+      Handler: sash.aws.processor_handler.handler
+      Timeout: 60
+      # sash.ingest.EventProcessor, unchanged. The local asyncio queue and this
+      # one present the same put_nowait/consume interface on purpose.
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SashTable }
+      Events:
+        FromQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EventQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes: [ReportBatchItemFailures]
+
+  PollerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "sash-${Stage}-poller"
+      CodeUri: ../src/
+      Handler: sash.aws.poller_handler.handler
+      Timeout: 60
+      # The Air Quality Monitor reports about every fifteen minutes and
+      # /status returns the last reported reading, so five minutes is three
+      # polls per measurement: enough to be prompt, and every repeat is refused
+      # by the conditional write rather than stored.
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SashTable }
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue, secretsmanager:PutSecretValue]
+              Resource: !Ref RingSecret
+            - Effect: Allow
+              Action: [kms:Decrypt, kms:GenerateDataKey]
+              Resource: !GetAtt RingKey.Arn
+
+  PollSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub "sash-${Stage}-poll"
+      ScheduleExpression: "rate(5 minutes)"
+      FlexibleTimeWindow: { Mode: "FLEXIBLE", MaximumWindowInMinutes: 2 }
+      Target:
+        Arn: !GetAtt PollerFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invoke-poller
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt PollerFunction.Arn
+
+  # --- the product half ----------------------------------------------------
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "sash-${Stage}-api"
+      CodeUri: ../src/
+      Handler: sash.aws.api_handler.handler
+      MemorySize: 1769
+      Timeout: 30
+      # The same FastAPI app as the local product, behind Mangum. Every /api
+      # route is a read of one cached household view; the fit runs here.
+      Environment:
+        Variables:
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          SASH_NARRATIVE_PROVIDER: !If [UseBedrock, bedrock, deterministic]
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SashTable }
+        - !If
+          - UseBedrock
+          - Statement:
+              - Effect: Allow
+                Action: [bedrock:InvokeModel]
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
+          - !Ref AWS::NoValue
+      Events:
+        Proxy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: any
+            RestApiId: !Ref Api
+
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      TracingEnabled: true
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingBurstLimit: 200
+          ThrottlingRateLimit: 100
+
+  # --- what has to be watched ----------------------------------------------
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Condition: HasAlarmEmail
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlarmEmail
+
+  DLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: >
+        An event reached the dead letter queue. Every message here is a Ring
+        webhook that was acknowledged and then not applied, which means the
+        record has a hole in it.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - { Name: QueueName, Value: !GetAtt EventDLQ.QueueName }
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: !If [HasAlarmEmail, [!Ref AlarmTopic], !Ref "AWS::NoValue"]
+
+  BadSignatureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: >
+        Deliveries are arriving that this signing key could not have produced.
+        Either the key rotated or something else is posting to the endpoint.
+      Namespace: SASH
+      MetricName: WebhookInvalidSignature
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmEmail, [!Ref AlarmTopic], !Ref "AWS::NoValue"]
+
+  StaleReadingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: >
+        Every poll for an hour returned a reading that was already stored. The
+        Air Quality Monitor has stopped reporting; the model will go stale and
+        the UI says so rather than showing an old number as a current one.
+      Namespace: SASH
+      MetricName: AirQualityNewSamples
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: !If [HasAlarmEmail, [!Ref AlarmTopic], !Ref "AWS::NoValue"]
+
+Outputs:
+  WebhookUrl:
+    Description: Register this with Ring as the webhook destination.
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/ring/webhook"
+  CallbackUrl:
+    Description: The OAuth redirect URI to register with Ring.
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/ring/callback"
+  AppUrl:
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
+  SecretArn:
+    Value: !Ref RingSecret
