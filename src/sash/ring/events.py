@@ -10,6 +10,7 @@ level in some examples and nested under ``data`` in others, so
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 # --- camera and doorbell ----------------------------------------------------
@@ -62,6 +63,7 @@ APP_INTEGRATION_REMOVED = "app_integration_removed"
 FAMILY_CAMERA = "camera"
 FAMILY_CONTACT = "contact_sensor"
 FAMILY_AQM = "air_quality_monitor"
+FAMILY_SENSOR = "sensor"
 
 
 class RingWebhookError(ValueError):
@@ -96,18 +98,46 @@ def attributes(payload: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def _timestamp(attrs: dict[str, Any], fallback: float) -> float:
-    """Ring stamps ``timestamp`` in epoch milliseconds."""
-    raw = attrs.get("timestamp")
+def epoch_seconds(raw: Any) -> float | None:
+    """Read a Ring timestamp in any of the forms the API uses.
+
+    Event attributes carry epoch milliseconds; status resources carry ISO 8601
+    strings such as ``2026-03-10T14:20:05.118Z``. A device that has never
+    checked in reports ``null`` or the Unix epoch, and both come back as
+    ``None`` so a caller never treats 1970 as a reading time.
+    """
     if raw is None:
-        return fallback
-    try:
-        value = float(raw)
-    except (TypeError, ValueError):
-        return fallback
+        return None
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        try:
+            value = float(text)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            value = parsed.timestamp()
+    else:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return None
     # Anything above this is milliseconds; below it, the payload already used
     # seconds. 1e11 seconds is the year 5138, 1e11 ms is 1973.
-    return value / 1000.0 if value > 1e11 else value
+    if value > 1e11:
+        value /= 1000.0
+    return value if value > 0 else None
+
+
+def _timestamp(attrs: dict[str, Any], fallback: float) -> float:
+    """Ring stamps ``timestamp`` in epoch milliseconds."""
+    value = epoch_seconds(attrs.get("timestamp"))
+    return fallback if value is None else value
 
 
 def parse(payload: dict[str, Any], received_at: float) -> RingEvent:

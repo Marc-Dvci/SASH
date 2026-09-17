@@ -23,6 +23,7 @@ import json
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 from .home import SimResult
@@ -30,17 +31,30 @@ from .home import SimResult
 # --- payload builders -------------------------------------------------------
 
 
+def iso(stamp: float) -> str:
+    """An ISO 8601 UTC timestamp with milliseconds, the way Ring writes one."""
+    whole = int(stamp // 1)
+    millis = int(round((stamp - whole) * 1000))
+    if millis == 1000:
+        whole, millis = whole + 1, 0
+    return datetime.fromtimestamp(whole, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S") + f".{millis:03d}Z"
+
+
 def _envelope(event_type: str, device_id: str, attributes: dict[str, Any], account_id: str) -> dict:
+    """The documented webhook envelope, payload version 1.1."""
+    stamp_ms = int(attributes.get("timestamp", 0))
     return {
         "meta": {
-            "request_id": uuid.uuid4().hex,
+            "version": "1.1",
+            "time": iso(stamp_ms / 1000.0 + 0.4),
+            "request_id": f"{uuid.uuid4()}-{stamp_ms}-{event_type[:13]}",
             "account_id": account_id,
-            "version": "2026-08-24",
         },
         "data": {
+            "id": f"{device_id}_{event_type}_{stamp_ms}",
             "type": event_type,
-            "id": uuid.uuid4().hex,
-            "attributes": {"source": device_id, **attributes},
+            "attributes": {"source": device_id, "source_type": "devices", **attributes},
+            "relationships": {"devices": {"links": {"self": f"/v1/devices/{device_id}"}}},
         },
     }
 
@@ -49,10 +63,17 @@ def motion_payload(
     device_id: str, timestamp: float, sub_type: str, account_id: str = "sim-account"
 ) -> dict:
     """``motion_detected`` with ``sub_type`` in motion|human|vehicle|other_motion."""
+    stamp_ms = int(timestamp * 1000)
+    readable = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     return _envelope(
         "motion_detected",
         device_id,
-        {"timestamp": int(timestamp * 1000), "sub_type": sub_type},
+        {
+            "timestamp": stamp_ms,
+            "timestamp_readable": readable,
+            "sub_type": sub_type,
+            "component_ids": ["0"],
+        },
         account_id,
     )
 
@@ -64,7 +85,7 @@ def contact_payload(
     return _envelope(
         "contact_sensor_faulted" if opened else "contact_sensor_cleared",
         device_id,
-        {"timestamp": int(timestamp * 1000), "contact_detection": {"faulted": opened}},
+        {"timestamp": int(timestamp * 1000)},
         account_id,
     )
 
@@ -77,8 +98,8 @@ def threshold_payload(
     account_id: str = "sim-account",
 ) -> dict:
     attrs: dict[str, Any] = {"timestamp": int(timestamp * 1000)}
-    if level is not None:
-        attrs["pm25_level" if event_type.startswith("pm25") else "co_level"] = level
+    if level is not None and event_type.startswith("pm25"):
+        attrs["pm25_level"] = level
     return _envelope(event_type, device_id, attrs, account_id)
 
 
@@ -96,49 +117,65 @@ def aqm_status(
     ``reported_at`` is the timestamp of the reading, not of the response. The
     endpoint returns the last reported reading; the two are rarely the same.
     """
-    return {
-        "data": {
-            "id": device_id,
-            "type": "device_status",
-            "reported_at": int(reported_at * 1000),
-            "attributes": {
-                "online": online,
-                "temperature": reading["temperature"],
-                "humidity": reading["humidity"],
-                "pm2_5": reading["pm2_5"],
-                "co": reading["co"],
-            },
-        }
-    }
+    return _status_resource(
+        device_id,
+        {
+            "online": online,
+            "reported_at": iso(reported_at),
+            "signal_strength": {"value": "good"},
+            # Mains powered: the Air Quality Monitor reports 255 here.
+            "battery_status": {"percentage": 255},
+            "temperature": reading["temperature"],
+            "humidity": reading["humidity"],
+            "pm2_5": reading["pm2_5"],
+            "co": reading["co"],
+        },
+    )
 
 
 def contact_status(device_id: str, faulted: bool, reported_at: float) -> dict:
-    return {
-        "data": {
-            "id": device_id,
-            "type": "device_status",
-            "reported_at": int(reported_at * 1000),
-            "attributes": {"online": True, "contact_detection": {"faulted": faulted}},
-        }
-    }
+    return _status_resource(
+        device_id,
+        {
+            "online": True,
+            "reported_at": iso(reported_at),
+            "signal_strength": {"value": "good"},
+            "battery_status": {"percentage": 91},
+            "sensor_reporting_state": {"value": "active"},
+            "contact_detection": {"faulted": faulted},
+            "tamper_detection": {"detected": False},
+        },
+    )
 
 
 def camera_status(device_id: str, online: bool, reported_at: float) -> dict:
+    return _status_resource(
+        device_id,
+        {"online": online, "reported_at": iso(reported_at), "motion_detection": {"enabled": True}},
+    )
+
+
+def _related_id(device_id: str, name: str) -> str:
+    return device_id.replace("ava1.ring.device.", f"ava1.ring.device.{name}.")
+
+
+def _status_resource(device_id: str, attributes: dict[str, Any]) -> dict:
     return {
         "data": {
-            "id": device_id,
-            "type": "device_status",
-            "reported_at": int(reported_at * 1000),
-            "attributes": {"online": online, "motion_detection": {"enabled": True}},
+            "type": "device-status",
+            "id": _related_id(device_id, "status"),
+            "attributes": attributes,
         }
     }
 
 
 # --- the simulated household ------------------------------------------------
 
-CAMERA_ID = "cam-front-1a2b"
-AQM_ID = "aqm-living-9f3c"
-ACCOUNT_ID = "sim-account-7c41"
+CAMERA_ID = "ava1.ring.device.SIMCAMFRONT1A2B"
+AQM_ID = "ava1.ring.device.SIMAQMLIVING9F3C"
+ACCOUNT_ID = "ava1.ring.account.SIM7C41"
+LOCATION_ID = "5ecd04ff-3d93-4a6e-80e4-035f735a58e4"
+LOCATION = {"country": "FR", "state": "Grand Est"}
 
 
 @dataclass
@@ -159,37 +196,39 @@ class SimHome:
             self.clock = self.result.t0
 
     # --- device catalogue -------------------------------------------------
-    def devices(self) -> list[dict[str, Any]]:
+    def _catalogue(self) -> list[dict[str, Any]]:
+        """Each device with its related resources, before JSON:API shaping."""
         out: list[dict[str, Any]] = [
             {
                 "id": self.camera_id,
-                "device_type": "camera",
-                "attributes": {
-                    "name": "Front Door",
-                    "online": self.camera_online(self.clock),
-                    "capabilities": {
-                        "motion_detection": True,
-                        "video": True,
-                        "live_view": True,
-                    },
-                    "configurations": {
+                "name": "Front Door",
+                "status": camera_status(self.camera_id, self.camera_online(self.clock), self.clock),
+                "capabilities": {
+                    "video": {"codecs": ["AVC"], "max_resolution": 1080},
+                    "motion_detection": {"configurations": ["enabled", "motion_zones"]},
+                    "image_enhancements": {"configurations": ["hdr"]},
+                },
+                "configurations": {
+                    "motion_detection": {
+                        "enabled": True,
                         "motion_zones": [
                             {"id": "zone-1", "name": "Pavement and road", "enabled": True}
                         ],
-                        "privacy_zones": [],
                     },
-                    "location": {"id": "loc-1", "name": "Home"},
+                    "image_enhancements": {"privacy_zones": []},
                 },
             },
             {
                 "id": self.aqm_id,
-                "device_type": "air_quality_monitor",
-                "attributes": {
-                    "name": "Living Room Air",
-                    "online": True,
-                    "capabilities": {"pm2_5": True, "co": True, "temperature": True,
-                                     "humidity": True},
-                    "location": {"id": "loc-1", "name": "Home"},
+                "name": "Living Room Air",
+                "status": self.status(self.aqm_id),
+                "capabilities": {"battery_status": None},
+                "configurations": {
+                    "temperature_threshold": {"high": 32.2, "low": 25.0},
+                    "humidity_threshold": {"high": 85.0, "low": 65.0},
+                    "motion_detection": None,
+                    "image_enhancements": None,
+                    "audio": None,
                 },
             },
         ]
@@ -197,15 +236,63 @@ class SimHome:
             out.append(
                 {
                     "id": opening_id,
-                    "device_type": "contact_sensor",
-                    "attributes": {
-                        "name": label,
-                        "online": True,
-                        "capabilities": {"contact_detection": True, "tamper": True},
-                        "location": {"id": "loc-1", "name": "Home"},
+                    "name": label,
+                    "status": contact_status(
+                        opening_id, self.opening_open(opening_id, self.clock), self.clock
+                    ),
+                    "capabilities": {"battery_status": {"supported": True}},
+                    "configurations": {
+                        "motion_detection": None,
+                        "image_enhancements": None,
+                        "audio": None,
                     },
                 }
             )
+        return out
+
+    def devices(self, include: str = "") -> dict[str, Any]:
+        """``GET /v1/devices``: a JSON:API compound document.
+
+        Every device is ``{"type": "devices", "id", "attributes": {"name"},
+        "relationships": {...}}``. The resources named in ``include`` are
+        returned once each in the top-level ``included`` array and matched by
+        their ``(type, id)`` pair, as the documentation describes.
+        """
+        wanted = {part.strip() for part in include.split(",") if part.strip()}
+        data: list[dict[str, Any]] = []
+        included: list[dict[str, Any]] = []
+        for dev in self._catalogue():
+            did = dev["id"]
+            rels: dict[str, Any] = {}
+            for name in ("status", "capabilities", "configurations", "location"):
+                rtype = "locations" if name == "location" else f"device-{name}"
+                rid = LOCATION_ID if name == "location" else _related_id(did, name)
+                rels[name] = {
+                    "data": {"type": rtype, "id": rid},
+                    "links": {"related": f"/v1/devices/{did}/{name}"},
+                }
+                if name in wanted:
+                    if name == "status":
+                        attrs = dev["status"]["data"]["attributes"]
+                    elif name == "location":
+                        attrs = dict(LOCATION)
+                    else:
+                        attrs = dev[name]
+                    included.append({"type": rtype, "id": rid, "attributes": attrs})
+            data.append(
+                {
+                    "type": "devices",
+                    "id": did,
+                    "attributes": {
+                        "name": dev["name"],
+                        "image_url": f"https://images.example.invalid/{did}.png",
+                    },
+                    "relationships": rels,
+                }
+            )
+        out: dict[str, Any] = {"meta": {"time": iso(self.clock)}, "data": data}
+        if included:
+            out["included"] = included
         return out
 
     # --- state at the current clock --------------------------------------
@@ -317,6 +404,37 @@ class SimHome:
 # --- the HTTP server --------------------------------------------------------
 
 
+class RateLimitHeaders:
+    """The documented ``X-RateLimit-*`` headers, 100 requests per second.
+
+    A plain ASGI wrapper: the seed replays twenty thousand status reads through
+    this server, and it adds nothing to each one but two headers.
+    """
+
+    def __init__(self, app: Any, counter: Any):
+        self.app = app
+        self.counter = counter
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        self.counter.calls += 1
+        remaining = str(max(0, 100 - self.counter.calls % 100)).encode()
+
+        async def send_with_headers(message: dict) -> None:
+            if message["type"] == "http.response.start":
+                message.setdefault("headers", [])
+                message["headers"] = list(message["headers"]) + [
+                    (b"x-ratelimit-limit", b"100"),
+                    (b"x-ratelimit-remaining", remaining),
+                ]
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
+
 def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
     """A FastAPI app serving the documented Ring endpoints for ``home``."""
     import hashlib
@@ -330,6 +448,8 @@ def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
     app.state.home = home
     app.state.webhook_url = webhook_url
     app.state.delivered = 0
+    app.state.calls = 0
+    app.add_middleware(RateLimitHeaders, counter=app.state)
 
     def _sign(body: bytes) -> str:
         return "sha256=" + hmac_mod.new(hmac_key.encode(), body, hashlib.sha256).hexdigest()
@@ -341,21 +461,27 @@ def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
             "refresh_token": "sim-refresh-" + uuid.uuid4().hex,
             "expires_in": 14400,
             "token_type": "Bearer",
-            "scope": "devices.read sensors.read events.read",
+            "scope": "ava",
             "account_id": home.account_id,
         }
 
     @app.get("/v1/users/me")
     async def me() -> dict:
-        return {"data": {"id": home.account_id, "type": "user"}}
+        return {
+            "data": {
+                "type": "users",
+                "id": home.account_id,
+                "attributes": {"first_name": "Sim", "last_name": "Household"},
+            }
+        }
 
     @app.get("/v1/devices")
     async def devices(include: str = "") -> dict:
-        return {"data": home.devices()}
+        return home.devices(include)
 
     @app.get("/v1/devices/{device_id}")
     async def device(device_id: str) -> Any:
-        for entry in home.devices():
+        for entry in home.devices()["data"]:
             if entry["id"] == device_id:
                 return {"data": entry}
         return JSONResponse({"error": "not_found"}, status_code=404)
@@ -367,23 +493,29 @@ def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
         except KeyError:
             return JSONResponse({"error": "not_found"}, status_code=404)
 
+    def _related(device_id: str, name: str) -> Any:
+        for entry in home._catalogue():
+            if entry["id"] == device_id:
+                return {
+                    "data": {
+                        "type": f"device-{name}",
+                        "id": _related_id(device_id, name),
+                        "attributes": entry[name],
+                    }
+                }
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
     @app.get("/v1/devices/{device_id}/capabilities")
     async def capabilities(device_id: str) -> Any:
-        for entry in home.devices():
-            if entry["id"] == device_id:
-                return {"data": entry["attributes"].get("capabilities", {})}
-        return JSONResponse({"error": "not_found"}, status_code=404)
+        return _related(device_id, "capabilities")
 
     @app.get("/v1/devices/{device_id}/configurations")
     async def configurations(device_id: str) -> Any:
-        for entry in home.devices():
-            if entry["id"] == device_id:
-                return {"data": entry["attributes"].get("configurations", {})}
-        return JSONResponse({"error": "not_found"}, status_code=404)
+        return _related(device_id, "configurations")
 
     @app.get("/v1/devices/{device_id}/location")
     async def location(device_id: str) -> Any:
-        return {"data": {"id": "loc-1", "name": "Home"}}
+        return {"data": {"type": "locations", "id": LOCATION_ID, "attributes": dict(LOCATION)}}
 
     @app.get("/v1/history/devices/{device_id}/events")
     async def history(

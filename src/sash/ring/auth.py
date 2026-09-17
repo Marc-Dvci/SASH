@@ -78,7 +78,7 @@ class TokenService:
         self._pending_states: dict[str, float] = {}
 
     # --- linking ----------------------------------------------------------
-    def authorization_url(self, scopes: str = "devices.read sensors.read events.read") -> tuple[str, str]:
+    def authorization_url(self, scopes: str = "ava") -> tuple[str, str]:
         """Build the consent URL. Returns ``(url, state)``."""
         state = secrets.token_urlsafe(24)
         self._pending_states[state] = time.time()

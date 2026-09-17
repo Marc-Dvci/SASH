@@ -224,13 +224,18 @@ class AirQualityPoller:
         return new
 
     def _store_status(self, device_id: str, status: dict[str, Any]) -> bool:
+        """Store one status resource. Returns True if it was a new reading.
+
+        ``reported_at`` arrives as an ISO 8601 string in ``attributes`` and is
+        the time of the reading, not of the response. A device that has not yet
+        checked in reports ``null`` or the Unix epoch there, and its placeholder
+        values are skipped rather than stored as a measurement.
+        """
         attrs = status.get("attributes", status) or {}
-        reported_at = status.get("reported_at") or attrs.get("reported_at")
+        reported_at = ev.epoch_seconds(attrs.get("reported_at", status.get("reported_at")))
         if reported_at is None:
+            self.stats.aq_poll_failures += 1
             return False
-        reported_at = float(reported_at)
-        if reported_at > 1e11:  # milliseconds
-            reported_at /= 1000.0
         stored = self.store.add_aq_sample(
             device_id=device_id,
             reported_at=reported_at,
@@ -286,17 +291,42 @@ async def discover_devices(store: Store, client: RingClient) -> list[dict[str, A
         if not device_id:
             continue
         family = _family_of(entry, attrs)
+        status = attrs.get("status") if isinstance(attrs.get("status"), dict) else {}
+        online = status.get("online", attrs.get("online", True))
         store.upsert_device(
             device_id=device_id,
             ring_name=str(attrs.get("name") or entry.get("name") or device_id),
             family=family,
-            online=bool(attrs.get("online", True)),
+            online=bool(online),
             config_hash=_config_hash(attrs),
         )
     return devices
 
 
 def _family_of(entry: dict[str, Any], attrs: dict[str, Any]) -> str:
+    """Decide what a device is from what it reports.
+
+    A Ring device resource carries no family field, and Ring warns that
+    capability keys are shared across families, so the family is read from the
+    sideloaded status and capabilities: a device reporting ``pm2_5`` is the Air
+    Quality Monitor, one reporting ``contact_detection`` is a contact sensor,
+    and one declaring ``video`` is a camera. The result is advisory. The role a
+    device plays in this home is set on the Setup tab and stored beside it.
+    """
+    status = attrs.get("status") or {}
+    caps = attrs.get("capabilities") or entry.get("capabilities") or {}
+    if isinstance(status, dict):
+        if "pm2_5" in status or "co" in status:
+            return ev.FAMILY_AQM
+        if "contact_detection" in status:
+            return ev.FAMILY_CONTACT
+    if isinstance(caps, dict):
+        if "pm2_5" in caps or "air_quality" in caps:
+            return ev.FAMILY_AQM
+        if "contact_detection" in caps:
+            return ev.FAMILY_CONTACT
+        if "video" in caps or "live_view" in caps:
+            return ev.FAMILY_CAMERA
     declared = str(entry.get("device_type") or attrs.get("device_type") or "").lower()
     if "air" in declared or "aqm" in declared:
         return ev.FAMILY_AQM
@@ -304,13 +334,9 @@ def _family_of(entry: dict[str, Any], attrs: dict[str, Any]) -> str:
         return ev.FAMILY_CONTACT
     if "camera" in declared or "doorbell" in declared:
         return ev.FAMILY_CAMERA
-    caps = entry.get("capabilities") or attrs.get("capabilities") or {}
-    if isinstance(caps, dict):
-        if "pm2_5" in caps or "air_quality" in caps:
-            return ev.FAMILY_AQM
-        if "contact_detection" in caps:
-            return ev.FAMILY_CONTACT
-    return ev.FAMILY_CAMERA
+    if isinstance(caps, dict) and "motion_detection" in caps:
+        return ev.FAMILY_CAMERA
+    return ev.FAMILY_SENSOR
 
 
 def _config_hash(attrs: dict[str, Any]) -> str | None:

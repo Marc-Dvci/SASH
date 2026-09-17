@@ -119,9 +119,9 @@ def default_home(rng: np.random.Generator | None = None) -> HomeParams:
         penetration=0.70,
         deposition=0.30,
         openings=[
-            OpeningParams("win_street", "Street window", "street", lam=4.2, g=8.0, habit_weight=3.0),
-            OpeningParams("win_court", "Courtyard window", "courtyard", lam=3.1, g=0.8, habit_weight=1.0),
-            OpeningParams("door_balcony", "Balcony door", "street", lam=6.0, g=5.6, habit_weight=0.7),
+            OpeningParams("ava1.ring.device.SIMWINSTREET7Q2K", "Street window", "street", lam=4.2, g=8.0, habit_weight=3.0),
+            OpeningParams("ava1.ring.device.SIMWINCOURT4M8D", "Courtyard window", "courtyard", lam=3.1, g=0.8, habit_weight=1.0),
+            OpeningParams("ava1.ring.device.SIMDOORBALCONY2X5V", "Balcony door", "street", lam=6.0, g=5.6, habit_weight=0.7),
         ],
     )
 
@@ -136,7 +136,7 @@ def random_home(rng: np.random.Generator) -> HomeParams:
         street_side = orientation == "street"
         openings.append(
             OpeningParams(
-                opening_id=f"win_{i}",
+                opening_id=f"ava1.ring.device.SIMWIN{i}",
                 label=f"Opening {i + 1}",
                 orientation=orientation,
                 lam=float(rng.uniform(1.6, 6.5)),

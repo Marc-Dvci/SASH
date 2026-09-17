@@ -53,31 +53,74 @@ def _post_event(client, payload):
 
 
 def test_a_signed_webhook_is_accepted(client):
-    r = _post_event(client, motion_payload("cam-front-1a2b", TAPE_END + 1, "vehicle"))
+    r = _post_event(client, motion_payload("ava1.ring.device.SIMCAMFRONT1A2B", TAPE_END + 1, "vehicle"))
     assert r.status_code == 200 and r.json()["ok"]
 
 
 def test_an_unsigned_webhook_gets_401_not_200(client):
-    raw = json.dumps(motion_payload("cam-front-1a2b", TAPE_END + 2, "vehicle")).encode()
+    raw = json.dumps(motion_payload("ava1.ring.device.SIMCAMFRONT1A2B", TAPE_END + 2, "vehicle")).encode()
     r = client.post("/ring/webhook", content=raw, headers={"X-Signature": "sha256=00"})
     assert r.status_code == 401
 
 
 def test_a_replayed_delivery_still_gets_200(client):
     """From Ring's side a retry that is acknowledged is a retry that stops."""
-    payload = contact_payload("win_court", TAPE_END + 3, True)
+    payload = contact_payload("ava1.ring.device.SIMWINCOURT4M8D", TAPE_END + 3, True)
     first = _post_event(client, payload)
     second = _post_event(client, payload)
     assert first.status_code == 200 and second.status_code == 200
     assert "duplicate" in second.json()["reason"]
 
 
-def test_the_callback_records_the_authorisation_code(client):
-    r = client.get("/ring/callback", params={"code": "abc123", "state": "s"})
-    assert r.status_code == 200 and "linked" in r.text.lower()
+def test_account_linking_runs_from_link_to_discovered_devices():
+    """``/ring/link`` to Ring's consent page, ``/ring/callback`` exchanges the code."""
+    from urllib.parse import parse_qs, urlparse
+
+    import httpx
+
+    from sash.ingest import IngestStats
+    from sash.live import LiveRing
+    from simulator.ring_api import create_app as create_ring_app
+
+    home = build_home(days=2, seed=4)
+    home.clock = home.result.t0 + 86400.0
+    ring_app = create_ring_app(home, HMAC_KEY)
+    config = SashConfig()
+    config.ring.api_base_url = "http://ring"
+    config.ring.oauth_token_url = "http://ring/oauth/token"
+    config.ring.client_id = "sash-client"
+    config.ring.client_secret = "sash-secret"
+    config.ring.redirect_uri = "http://testserver/ring/callback"
+    config.ring.access_token = ""
+    store = Store(":memory:")
+    live = LiveRing(config, store, IngestStats(), transport=httpx.ASGITransport(app=ring_app))
+    live.oauth._http = httpx.AsyncClient(transport=httpx.ASGITransport(app=ring_app))
+    app = create_app(store, config=config, household=Household(store), ring=live)
+
+    with TestClient(app) as c:
+        assert c.get("/api/ring").json()["linked"] is False
+        r = c.get("/ring/link", follow_redirects=False)
+        assert r.status_code == 302
+        target = urlparse(r.headers["location"])
+        assert target.netloc == "account.ring.com"
+        query = parse_qs(target.query)
+        assert query["client_id"] == ["sash-client"] and query["scope"] == ["ava"]
+
+        forged = c.get("/ring/callback", params={"code": "c", "state": "forged"}, follow_redirects=False)
+        assert forged.status_code == 400
+
+        r = c.get(
+            "/ring/callback",
+            params={"code": "c0de", "state": query["state"][0]},
+            follow_redirects=False,
+        )
+        assert r.status_code == 302
+        ring = c.get("/api/ring").json()
+        assert ring["linked"] is True and ring["account_id"] == home.account_id
+        assert ring["devices"] == 2 + len(home.labels)
 
 
-def test_the_callback_reports_an_error_rather_than_pretending(client):
+def test_the_callback_reports_an_error(client):
     r = client.get("/ring/callback", params={"error": "access_denied"})
     assert r.status_code == 400
 
@@ -198,17 +241,17 @@ def test_the_demo_routes_are_absent_without_the_simulator(client):
 
 def test_remapping_a_device_changes_what_the_model_is_about(client):
     before = client.get("/api/model").json()["model"]["openings"]
-    assert "win_court" in before
+    assert "ava1.ring.device.SIMWINCOURT4M8D" in before
     r = client.post(
-        "/api/devices/win_court/role",
+        "/api/devices/ava1.ring.device.SIMWINCOURT4M8D/role",
         json={"app_role": "unused", "label": "Courtyard window", "orientation": None},
     )
     assert r.status_code == 200
     after = client.get("/api/model").json()["model"]["openings"]
-    assert "win_court" not in after
+    assert "ava1.ring.device.SIMWINCOURT4M8D" not in after
     # Put it back, so the rest of the module sees the household it expects.
     client.post(
-        "/api/devices/win_court/role",
+        "/api/devices/ava1.ring.device.SIMWINCOURT4M8D/role",
         json={"app_role": "opening", "label": "Courtyard window", "orientation": "courtyard"},
     )
 
@@ -224,3 +267,45 @@ def test_remapping_an_unknown_device_is_a_404(client):
 @pytest.mark.parametrize("path", ["/", "/app.css", "/app.js"])
 def test_the_ui_is_served(client, path):
     assert client.get(path).status_code == 200
+
+
+# --- against a Ring account -------------------------------------------------
+
+
+def test_live_discovers_and_polls_through_the_documented_endpoints():
+    """``sash live`` with a Playground token: discovery, roles, one poll."""
+    import httpx
+
+    from sash.config import SashConfig
+    from sash.ingest import IngestStats
+    from sash.live import LiveRing, spike
+    from simulator.ring_api import create_app as create_ring_app
+    from simulator.seed import build_home
+
+    home = build_home(days=2, seed=3)
+    home.clock = home.result.t0 + 86400.0
+    ring_app = create_ring_app(home, "sash-dev-key")
+    config = SashConfig()
+    config.ring.api_base_url = "http://ring"
+    config.ring.access_token = "playground-token"
+    store = Store(":memory:")
+
+    report = asyncio.run(spike(config, store, transport=httpx.ASGITransport(app=ring_app)))
+    assert report["mode"] == "access_token"
+    assert report["account"] == home.account_id
+    assert {d["family"] for d in report["devices"]} == {
+        "camera", "air_quality_monitor", "contact_sensor"
+    }
+    assert report["poll"]["new_samples_first_pass"] == 1
+    assert report["poll"]["new_samples_second_pass"] == 0
+    assert report["poll"]["repeats_refused"] == 1
+    assert report["rate_limit"]["limit"] == 100
+
+    roles = {d.device_id: d.app_role for d in store.devices()}
+    assert roles[home.aqm_id] == "indoor_air"
+    assert roles[home.camera_id] == "street_camera"
+    assert all(roles[o] == "opening" for o in home.labels)
+
+    live = LiveRing(config, store, IngestStats(), transport=httpx.ASGITransport(app=ring_app))
+    assert live.linked and live.describe()["mode"] == "access_token"
+    asyncio.run(live.stop())

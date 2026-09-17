@@ -100,6 +100,33 @@ def check_path(path: str) -> None:
     raise PathNotAllowed(f"{path} is not on the SASH allowlist")
 
 
+def sideload(devices: list[dict[str, Any]], included: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Join a compound document's ``included`` resources onto their devices.
+
+    Ring returns ``{"type": "device-status", "id": ..., "attributes": {...}}``
+    resources in ``included`` and points at them from each device's
+    ``relationships.<name>.data``. The join key is the ``(type, id)`` pair. The
+    joined attributes land under ``attributes.<relationship>`` on the device.
+    """
+    by_key = {
+        (res.get("type"), res.get("id")): res.get("attributes") or {}
+        for res in included
+        if isinstance(res, dict)
+    }
+    out: list[dict[str, Any]] = []
+    for device in devices:
+        entry = dict(device)
+        attrs = dict(entry.get("attributes") or {})
+        for name, rel in (entry.get("relationships") or {}).items():
+            link = (rel or {}).get("data") or {}
+            found = by_key.get((link.get("type"), link.get("id")))
+            if found is not None and name not in attrs:
+                attrs[name] = found
+        entry["attributes"] = attrs
+        out.append(entry)
+    return out
+
+
 class RingClient:
     """Async Ring API client.
 
@@ -204,9 +231,18 @@ class RingClient:
 
     # --- endpoints --------------------------------------------------------
     async def list_devices(self, include: str = "status,capabilities,location,configurations") -> list[dict[str, Any]]:
+        """Every device the household shared, with its related resources attached.
+
+        The response is a JSON:API compound document: each device carries
+        ``relationships`` naming a status, capabilities, configurations and
+        location resource, and the ones asked for with ``include`` arrive in a
+        top-level ``included`` array. :func:`sideload` joins them onto the device
+        under ``attributes.status``, ``attributes.capabilities`` and so on, which
+        is the shape every caller in SASH reads.
+        """
         payload = await self.request("GET", "/v1/devices", params={"include": include})
         if isinstance(payload, dict):
-            return list(payload.get("data") or [])
+            return sideload(list(payload.get("data") or []), payload.get("included") or [])
         return list(payload or [])
 
     async def device(self, device_id: str) -> dict[str, Any]:
