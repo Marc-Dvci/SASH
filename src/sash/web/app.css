@@ -93,6 +93,13 @@ button.solid {
 button.solid:hover { background: var(--air); }
 button.solid:disabled { opacity: .45; cursor: default; }
 
+a.btn {
+  display: inline-block; margin-left: 6px;
+  background: var(--air-deep); color: #04110e; border-radius: 7px;
+  padding: 7px 14px; font-weight: 600; font-size: 13px; text-decoration: none;
+}
+a.btn:hover { background: var(--air); }
+
 /* ---------- synthetic banner ---------- */
 
 .synthetic-banner {
@@ -149,6 +156,15 @@ main { padding: 22px 28px 40px; max-width: 1320px; }
 #street-card { grid-area: street; }
 @media (max-width: 1000px) {
   .grid-now { grid-template-columns: 1fr; grid-template-areas: "decision" "demand" "alternatives" "street"; }
+}
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; gap: 12px 18px; padding: 12px 16px; }
+  .brand { min-width: 0; flex: 1 1 100%; }
+  .live { flex: 1 1 100%; gap: 14px 18px; }
+  .live .metric .v { font-size: 15px; }
+  .topbar-actions { flex: 1 1 100%; }
+  .topbar-actions button { flex: 1; }
+  main { padding-left: 16px; padding-right: 16px; }
 }
 
 .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
@@ -343,6 +359,7 @@ table.ledger th {
 table.ledger td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
 table.ledger td.num { font-family: var(--mono); text-align: right; }
 
+td.dim { color: var(--ink-faint); font-size: 12px; white-space: nowrap; }
 .verdict-pill { font-size: 11px; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .verdict-pill.inside_interval { color: var(--good); border: 1px solid rgba(111,208,140,.35); }
 .verdict-pill.above { color: var(--warn); border: 1px solid rgba(232,115,74,.35); }

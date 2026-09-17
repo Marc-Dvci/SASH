@@ -87,9 +87,9 @@ const DEMO = (() => {
       run: async () => { await spotlight('#verdict-card', 'The permutation gate'); },
     },
     {
-      say: "Now watch Ring deliver. Every event here is a signed webhook through the "
-         + "shipping receiver, and every reading is fetched by the same client that would "
-         + "call Ring.",
+      say: "Now watch the events arrive. Every one is a signed webhook through the "
+         + "shipping receiver, and every reading is fetched by the same client that "
+         + "reads a Ring account.",
       seconds: 10,
       run: async () => {
         await tab('timeline');
@@ -119,7 +119,7 @@ const DEMO = (() => {
       seconds: 11,
       run: async () => {
         await clickIt('#follow', 'The household follows it');
-        await waitIdle(4000);
+        await waitIdle(8000);
         // Four hours, because a plan cannot be scored until its window and the
         // ninety minutes of recovery after it have both gone past. The click
         // returns immediately; the next beat waits for the work.
@@ -127,7 +127,7 @@ const DEMO = (() => {
       },
     },
     {
-      say: "And it gets scored against readings it genuinely produced. SASH takes the "
+      say: "And it gets scored against the readings that followed. SASH takes the "
          + "credit and the blame only for airings it proposed and that actually happened.",
       seconds: 10,
       run: async () => {
@@ -268,7 +268,7 @@ const DEMO = (() => {
     }
     spot.hidden = true;
     cursor.hidden = true;
-    caption('SASH — Street Air, Sensed at Home.');
+    caption('SASH. Street Air, Sensed at Home.');
     window.__SASH_DONE = true;
   }
 

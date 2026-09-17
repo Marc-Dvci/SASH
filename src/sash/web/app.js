@@ -9,8 +9,12 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const state = { view: 'now', hours: 24, busy: false, canFollow: false };
 
-async function get(path)  { const r = await fetch(path); if (!r.ok) throw new Error(path + ' ' + r.status); return r.json(); }
-async function post(path) { const r = await fetch(path, { method: 'POST' }); return r.json(); }
+/* The app may be served from a path prefix (an API Gateway stage such as
+ * /prod/), so every request is made relative to the page's own directory. */
+const BASE = location.pathname.replace(/[^/]*$/, '');
+const url = path => BASE + path.replace(/^\//, '');
+async function get(path)  { const r = await fetch(url(path)); if (!r.ok) throw new Error(path + ' ' + r.status); return r.json(); }
+async function post(path) { const r = await fetch(url(path), { method: 'POST' }); return r.json(); }
 
 const nf  = (v, d = 0) => (v === null || v === undefined || Number.isNaN(v)) ? '--' : Number(v).toFixed(d);
 
@@ -139,10 +143,9 @@ function renderDecision(rec) {
       Single-airing interval ±${nf(halfWidth)} µg/m³ × min at 90%, widened
       ${nf((rec.calibration || {}).k, 1)}× from the parameter bootstrap by
       ${(rec.calibration || {}).n || 0} of this home's own past airings.
-      One airing is hard to price and hard to measure: on the benchmark the median forecast
-      error is 52% of a median airing, and the retrospective measurement carries its own. The comparison
-      above is the claim, because it is a difference between two openings on the same day and
-      the terms that make a single number uncertain are common to both.
+      The comparison above is the claim: it is a difference between two openings on the same
+      day, and the background, the weather and the level the flat sits at are common to both
+      sides and cancel.
       · Wording: <code>${narrative.source || 'deterministic'}</code>
     </div>`;
 
@@ -200,7 +203,7 @@ function renderDemand(rec, status) {
         <span class="m">${nf(status.street.percentile)}th percentile for this camera</span></div>
     </div>
     <p class="hint" style="margin-top:14px">
-      The target is this household's own historical median, not a guideline. SASH moves
+      The target is this household's own historical median. SASH moves
       <em>when</em> and <em>which</em>, never <em>how much</em>.
     </p>`;
 }
@@ -213,7 +216,8 @@ function renderAlternatives(rec) {
     `Every opening at every quarter hour over the next twelve hours, forecast one by one. ` +
     `${rec.n_considered} plans survived the only filter SASH applies to the clock: it will not offer ` +
     `a time this household has never aired at. Over ${rec.n_airings_observed} airings, that is ` +
-    `${nf(rec.habit_hours, 1)} hours of the day.`;
+    `${nf(rec.habit_hours, 1)} hours of the day. Plans within eight per cent of each other are ` +
+    `tied, and the earlier one wins the tie.`;
   const rows = [];
   if (rec.best) rows.push({ ...rec.best, chosen: true });
   (rec.alternatives || []).forEach(a => rows.push(a));
@@ -332,8 +336,8 @@ function renderVerdicts(model) {
     return;
   }
   el.innerHTML = `
-    <p class="hint">Each airing is held exactly as it happened and only the label — which
-    opening it belonged to — is shuffled. If the difference SASH found survives that,
+    <p class="hint">Each airing is held exactly as it happened and only the label, which
+    opening it belonged to, is shuffled. If the difference SASH found survives that,
     it is a difference between the openings. If it does not, SASH says so.</p>
     ${cs.map(c => `
       <div class="verdict ${c.significant ? 'sig' : 'notsig'}">
@@ -508,7 +512,7 @@ function renderLedger(led) {
     <table class="ledger">
       <thead><tr>
         <th>Published</th><th>Opening</th><th>Ran at</th>
-        <th class="num">Forecast</th><th>Forecast vs realised</th>
+        <th class="num">Forecast</th><th class="num">90% interval</th><th>Where it landed</th>
         <th class="num">Realised</th><th>Verdict</th>
       </tr></thead>
       <tbody>${rows.map(r => {
@@ -517,6 +521,7 @@ function renderLedger(led) {
           <td>${r.opening_label}</td>
           <td>${dayHM(r.start_at)}</td>
           <td class="num">${nf(r.pred_intake)}</td>
+          <td class="num dim">${nf(r.pred_intake_lo)} to ${nf(r.pred_intake_hi)}</td>
           <td>${r.realized_intake === null || r.realized_intake === undefined ? ''
             : errBar(r.pred_intake, r.pred_intake_lo, r.pred_intake_hi, r.realized_intake)}</td>
           <td class="num">${r.realized_intake === null || r.realized_intake === undefined ? '--' : nf(r.realized_intake)}</td>
@@ -563,18 +568,24 @@ function renderBacktest(bt) {
     </p>
     <table class="ledger">
       <thead><tr><th>Airing</th><th>Opening</th><th class="num">Minutes</th>
-        <th class="num">Forecast</th><th>Where it landed in its interval</th><th class="num">Realised</th><th>Verdict</th></tr></thead>
+        <th class="num">Forecast</th><th class="num">90% interval</th><th>Where it landed</th>
+        <th class="num">Realised</th><th>Verdict</th></tr></thead>
       <tbody>${rows.slice(0, 12).map(a => `
         <tr>
           <td>${dayHM(a.start_at)}</td>
           <td>${a.opening_label}</td>
           <td class="num">${nf(a.duration_min)}</td>
           <td class="num">${nf(a.pred_intake)}</td>
+          <td class="num dim">${nf(a.pred_intake_lo)} to ${nf(a.pred_intake_hi)}</td>
           <td>${errBar(a.pred_intake, a.pred_intake_lo, a.pred_intake_hi, a.realised_intake)}</td>
           <td class="num">${nf(a.realised_intake)}</td>
           <td><span class="verdict-pill ${a.verdict}">${a.verdict.replace(/_/g, ' ')}</span></td>
         </tr>`).join('')}</tbody>
-    </table>`;
+    </table>
+    <p class="hint">Intake is in µg/m³ × minutes admitted above a closed home over the airing and its
+    recovery tail. A negative value is an airing that carried more particulate out than it let in,
+    which is what opening a window after cooking does. The interval is the household's own: the
+    parameter bootstrap gives its shape and the middle slice of the record sets its width.</p>`;
 }
 
 /* ============================ SETUP ============================ */
@@ -595,10 +606,27 @@ const ROLES = [
   ['unused', 'Not used by SASH'],
 ];
 
-function renderDevices(d) {
+function ringLine(d, ring) {
+  if (!ring || ring.mode === 'simulator' || ring.mode === 'webhooks') {
+    return `<p class="hint" style="margin-top:0">Linked to <code>${d.linked_to}</code>.</p>`;
+  }
+  if (ring.linked) {
+    const who = ring.account_id ? ` as <code>${ring.account_id}</code>` : '';
+    const how = ring.mode === 'access_token' ? 'a Playground token' : 'OAuth';
+    return `<p class="hint" style="margin-top:0">Linked to <code>${ring.api_base_url}</code>${who} through ${how}
+      · ${ring.calls} API calls this session${ring.last_error ? ` · <span style="color:var(--warn)">${ring.last_error}</span>` : ''}</p>`;
+  }
+  return `<p class="hint" style="margin-top:0">Not linked to a Ring account yet.
+    ${ring.can_link
+      ? '<a class="btn" href="ring/link">Link your Ring account</a>'
+      : 'Set <code>RING_ACCESS_TOKEN</code> for a Playground token, or <code>RING_CLIENT_ID</code>, <code>RING_CLIENT_SECRET</code> and <code>RING_REDIRECT_URI</code> to link an account.'}
+  </p>`;
+}
+
+function renderDevices(d, ring) {
   $('#devices').className = '';
   $('#devices').innerHTML = `
-    <p class="hint" style="margin-top:0">Linked to <code>${d.linked_to}</code>.</p>
+    ${ringLine(d, ring)}
     <table class="devices">
       <thead><tr><th>Ring name</th><th>Device family</th><th>Means, in this home</th>
         <th>Side it faces</th><th>Ring device id</th><th>State</th></tr></thead>
@@ -625,7 +653,7 @@ function renderDevices(d) {
     const role = $('select.role', row).value;
     const orient = $('select.orient', row);
     const label = row.children[0].textContent.trim();
-    await fetch(`/api/devices/${deviceId}/role`, {
+    await fetch(url(`/api/devices/${deviceId}/role`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_role: role, label, orientation: orient ? orient.value : null }),
@@ -638,8 +666,18 @@ function renderDevices(d) {
 
 /* ============================ wiring ============================ */
 
+/* A refresh asked for while one is running runs again once it lands, so data
+ * that arrived during a refit (an Advance, a followed plan) is always read. */
 async function refresh() {
-  if (state.busy) return;
+  if (state.refreshing) {
+    state.again = state.again || state.refreshing.then(() => { state.again = null; return refresh(); });
+    return state.again;
+  }
+  state.refreshing = refreshOnce();
+  try { await state.refreshing; } finally { state.refreshing = null; }
+}
+
+async function refreshOnce() {
   state.busy = true;
   /* The guided walkthrough waits on this rather than on a fixed sleep, so a
    * slow refit moves the beat rather than desynchronising the narration. */
@@ -661,7 +699,7 @@ async function refresh() {
 
     renderLedger(await get('/api/ledger'));
     renderHealth(await get('/api/health'));
-    renderDevices(await get('/api/devices'));
+    renderDevices(await get('/api/devices'), await get('/api/ring'));
   } catch (e) {
     console.error(e);
     toast('Could not reach SASH: ' + e.message);
