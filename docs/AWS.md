@@ -126,7 +126,8 @@ model produced is not a measurement.
 pip install -e ".[aws]"
 sam build --use-container --template infra/template.yaml
 sam deploy --stack-name sash-dev --resolve-s3 --capabilities CAPABILITY_IAM \
-    --parameter-overrides Stage=dev BedrockModelId=us.openai.gpt-5.6-luna \n    BedrockFoundationModel=openai.gpt-5.6-luna
+    --parameter-overrides Stage=dev BedrockModelId=us.openai.gpt-5.6-luna \
+    BedrockFoundationModel=openai.gpt-5.6-luna
 ```
 
 Then write the Ring client id, client secret, HMAC signing key and access
