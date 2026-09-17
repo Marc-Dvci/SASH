@@ -1,8 +1,8 @@
 """Runtime configuration for SASH.
 
-Everything is read from the environment so the same code runs against the real
-Ring Partner API or against the bundled simulator (``simulator/ring_sim.py``)
-with nothing but a change of ``RING_API_BASE_URL``.
+Everything is read from the environment so the same code runs against the Ring
+Partner API or against the bundled simulator (``simulator/ring_api.py``) with
+nothing but a change of ``RING_API_BASE_URL``.
 """
 
 from __future__ import annotations
@@ -56,6 +56,11 @@ class RingConfig:
     )
     redirect_uri: str = field(
         default_factory=lambda: os.environ.get("RING_REDIRECT_URI", "")
+    )
+    #: A token from the Ring Developer Playground. When set, ``sash live`` and
+    #: ``sash spike`` use it directly and skip account linking.
+    access_token: str = field(
+        default_factory=lambda: os.environ.get("RING_ACCESS_TOKEN", "")
     )
 
     @property

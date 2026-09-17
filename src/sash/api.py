@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
 from . import narrative
 from .config import CONFIG, SashConfig
@@ -43,8 +43,16 @@ def create_app(
     household: Household | None = None,
     on_demo_tick: Callable[..., Any] | None = None,
     on_demo_follow: Callable[..., Any] | None = None,
+    ring: Any | None = None,
+    poll_interval_s: float = 300.0,
 ) -> FastAPI:
-    """Build the SASH application around an already-open store."""
+    """Build the SASH application around an already-open store.
+
+    ``ring`` is a :class:`sash.live.LiveRing` when SASH runs against a Ring
+    account: it owns the client, discovery and the Air Quality Monitor poller,
+    and ``/ring/link`` and ``/ring/callback`` complete account linking through
+    it. The demo passes ``on_demo_tick`` and ``on_demo_follow`` instead.
+    """
     config = config or CONFIG
     household = household or Household(store)
 
@@ -67,9 +75,15 @@ def create_app(
     app.state.pipeline = pipeline
     app.state.started_at = time.time()
 
+    app.state.ring = ring
+
     @app.on_event("startup")
     async def _start() -> None:
         app.state.pipeline_task = asyncio.create_task(pipeline.run())
+        if ring is not None and ring.linked:
+            await ring.discover()
+            ring.start(poll_interval_s)
+            household.invalidate()
 
     @app.on_event("shutdown")
     async def _stop() -> None:
@@ -77,6 +91,8 @@ def create_app(
         task = getattr(app.state, "pipeline_task", None)
         if task:
             task.cancel()
+        if ring is not None:
+            await ring.stop()
 
     # --- Ring ------------------------------------------------------------
 
@@ -96,18 +112,51 @@ def create_app(
             return JSONResponse({"ok": False, "reason": outcome.reason}, status_code=status)
         return JSONResponse({"ok": True, "reason": outcome.reason})
 
+    @app.get("/ring/link")
+    async def ring_link() -> Response:
+        """Send the household to Ring's consent page."""
+        if ring is None or not ring.describe()["can_link"]:
+            raise HTTPException(
+                409,
+                "account linking needs RING_CLIENT_ID and RING_REDIRECT_URI; "
+                "a Playground token goes in RING_ACCESS_TOKEN instead",
+            )
+        url, _state = ring.oauth.authorization_url()
+        return RedirectResponse(url, status_code=302)
+
     @app.get("/ring/callback")
     async def ring_callback(code: str = "", state: str = "", error: str = "") -> Response:
-        """Where Ring returns the household after it authorises the link."""
+        """Where Ring returns the household after it authorises the link.
+
+        The authorisation code is good for sixty seconds, so it is exchanged
+        here and now, and the account's devices are discovered before the
+        household is sent back to Setup.
+        """
         if error:
             return PlainTextResponse(f"Ring returned an error: {error}", status_code=400)
         if not code:
             return PlainTextResponse("No authorisation code in the callback.", status_code=400)
-        store.set_meta("pending_authorization_code", code)
-        store.set_meta("pending_authorization_state", state)
-        return PlainTextResponse(
-            "Account linked. You can close this tab and go back to SASH.",
-        )
+        if ring is None:
+            raise HTTPException(409, "SASH is not running against a Ring account")
+        if not ring.oauth.validate_state(state):
+            return PlainTextResponse("The state parameter did not match.", status_code=400)
+        await ring.link(code)
+        ring.start(poll_interval_s)
+        household.invalidate()
+        return RedirectResponse("./#setup", status_code=302)
+
+    @app.get("/api/ring")
+    async def api_ring() -> dict[str, Any]:
+        """How SASH is attached to Ring: simulator, Playground token or OAuth."""
+        if ring is None:
+            simulated = config.ring.is_simulated or bool(store.get_meta("seeded_synthetic", False))
+            return {
+                "mode": "simulator" if simulated else "webhooks",
+                "linked": True,
+                "api_base_url": config.ring.api_base_url,
+                "can_link": False,
+            }
+        return ring.describe()
 
     @app.get("/ring/stats")
     async def ring_stats() -> dict[str, Any]:
@@ -192,7 +241,9 @@ def create_app(
                 for d in store.devices()
             ],
             "linked_to": (
-                "Ring simulator" if config.ring.is_simulated else config.ring.api_base_url
+                "Ring simulator"
+                if config.ring.is_simulated or store.get_meta("seeded_synthetic", False)
+                else config.ring.api_base_url
             ),
             "synthetic_history": bool(store.get_meta("seeded_synthetic", False)),
         }

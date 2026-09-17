@@ -125,6 +125,57 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_live(args: argparse.Namespace) -> int:
+    """Serve the product against a Ring account.
+
+    With ``RING_ACCESS_TOKEN`` set (a Playground token), discovery and polling
+    start immediately. With ``RING_CLIENT_ID``, ``RING_CLIENT_SECRET`` and
+    ``RING_REDIRECT_URI`` set, the Setup tab offers account linking and the
+    poller starts once the household has linked.
+    """
+    import uvicorn
+
+    from .api import create_app
+    from .config import CONFIG
+    from .ingest import IngestStats
+    from .live import LiveRing
+    from .service import Household
+    from .store import Store
+
+    store = Store(args.db)
+    household = Household(store)
+    ring = LiveRing(CONFIG, store, IngestStats())
+    app = create_app(
+        store, config=CONFIG, household=household, ring=ring, poll_interval_s=args.poll_seconds
+    )
+    # One set of counters for the webhook side and the poller side.
+    ring.stats = ring.poller.stats = app.state.pipeline.processor.stats
+
+    _banner("SASH is running against Ring")
+    _kv("UI", f"http://{args.host}:{args.port}/")
+    _kv("Ring API", CONFIG.ring.api_base_url)
+    _kv("credentials", "RING_ACCESS_TOKEN" if ring.mode == "access_token" else "OAuth")
+    _kv("linked", "yes" if ring.linked else "no, open the Setup tab")
+    _kv("webhook route", f"POST http://{args.host}:{args.port}/ring/webhook")
+    print()
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
+def cmd_spike(args: argparse.Namespace) -> int:
+    """The first minutes with a Ring account: account, devices, statuses, two polls."""
+    from .config import CONFIG
+    from .live import spike
+    from .store import Store
+
+    store = Store(args.db)
+    _banner(f"Ring spike against {CONFIG.ring.api_base_url}")
+    report = asyncio.run(spike(CONFIG, store))
+    print(json.dumps(report, indent=2, default=str))
+    store.close()
+    return 0
+
+
 def cmd_demo(args: argparse.Namespace) -> int:
     """Seed, then serve with the simulated Ring account still attached.
 
@@ -328,6 +379,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("live", help="serve against a Ring account")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--poll-seconds", type=float, default=300.0)
+    p.set_defaults(func=cmd_live)
+
+    p = sub.add_parser("spike", help="read a Ring account once: devices, statuses, two polls")
+    p.set_defaults(func=cmd_spike)
 
     p = sub.add_parser("fit", help="print the fitted household model")
     p.set_defaults(func=cmd_fit)
