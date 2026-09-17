@@ -147,7 +147,7 @@ class BedrockNarrator:
     the response says which one spoke.
     """
 
-    def __init__(self, model_id: str, region: str, timeout_s: float = 4.0):
+    def __init__(self, model_id: str, region: str, timeout_s: float = 20.0):
         self.model_id = model_id
         self.region = region
         self.timeout_s = timeout_s
@@ -180,9 +180,17 @@ class BedrockNarrator:
                     "content": [{"text": json.dumps(facts.as_dict(), indent=2)}],
                 }
             ],
-            inferenceConfig={"maxTokens": 220, "temperature": 0.2},
+            inferenceConfig={"maxTokens": 1200},
         )
-        return response["output"]["message"]["content"][0]["text"].strip()
+        # A reasoning model returns its reasoning as a separate content block;
+        # the sentence is the text block.
+        blocks = response["output"]["message"]["content"]
+        return next((b["text"] for b in blocks if b.get("text")), "").strip()
+
+
+#: The wording for a decision already phrased, so a page refresh on the same
+#: decision reads the same sentence and costs no second call.
+_SPOKEN: dict[tuple[str, str], str] = {}
 
 
 def narrate(
@@ -210,10 +218,14 @@ def narrate(
     if provider != "bedrock" or not model_id:
         return {"text": fallback, "source": "deterministic", "facts": facts.as_dict()}
 
+    key = (model_id, json.dumps(facts.as_dict(), sort_keys=True))
+    if key in _SPOKEN:
+        return {"text": _SPOKEN[key], "source": f"bedrock:{model_id}", "facts": facts.as_dict()}
     try:
         text = BedrockNarrator(model_id, region).speak(facts)
         if not text:
             raise ValueError("empty completion")
+        _SPOKEN[key] = text
         return {"text": text, "source": f"bedrock:{model_id}", "facts": facts.as_dict()}
     except Exception as exc:  # noqa: BLE001 - any failure falls back, by design
         return {

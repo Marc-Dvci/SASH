@@ -24,6 +24,12 @@ Parameters:
       Leave empty to use the deterministic phrase renderer. Setting it switches
       narrative.py to Bedrock for the wording only; the numbers are produced by
       the estimator either way.
+  BedrockFoundationModel:
+    Type: String
+    Default: ""
+    Description: >
+      The model behind BedrockModelId when that is an inference profile, for
+      example openai.gpt-5.6-luna behind us.openai.gpt-5.6-luna.
   AlarmEmail:
     Type: String
     Default: ""
@@ -250,9 +256,20 @@ Resources:
         - !If
           - UseBedrock
           - Statement:
+              # A cross-region profile (``us.`` or ``global.``) routes to the
+              # model in whichever region has capacity, so the model ARN is
+              # granted in every region and the profile in this one.
               - Effect: Allow
-                Action: [bedrock:InvokeModel]
-                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${BedrockModelId}"
+                  - !Sub "arn:aws:bedrock:*::foundation-model/${BedrockFoundationModel}"
+              # Models served through AWS Marketplace are enabled for the
+              # account by the first invocation of an identity allowed to
+              # subscribe.
+              - Effect: Allow
+                Action: [aws-marketplace:ViewSubscriptions, aws-marketplace:Subscribe]
+                Resource: "*"
           - !Ref AWS::NoValue
       Events:
         # Keeps one container warm, so the fitted household view it caches is
