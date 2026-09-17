@@ -40,11 +40,11 @@ Four movements, in the order a judge's attention is worth spending.
 | 6 | Windows tab, air exchange | Here is the measurement that makes it possible. Carbon monoxide has no street in it. Between cooking events it is a decaying tracer, so regressing its decay rate on how open each window was gives that window's air exchange rate directly. |
 | 7 | Street coupling | That is tracer gas decay, which normally needs a technician and a cylinder of gas. This household makes the tracer twice a day by cooking, and Ring already measures it. |
 | 8 | The verdict card | And SASH refuses to over-claim. Every airing is held as it happened and only the label is shuffled. The courtyard window survives that. The balcony door does not, so SASH says these two are not yet distinguishable. |
-| 9 | Timeline, **Advance 30 min** clicked | Now watch Ring deliver. Every event here is a signed webhook through the shipping receiver, and every reading is fetched by the same client that would call Ring. |
+| 9 | Timeline, **Advance 30 min** clicked | Now watch the events arrive. Every one is a signed webhook through the shipping receiver, and every reading is fetched by the same client that reads a Ring account. |
 | 10 | The timeline redraws | The readings arrive, the model refits, and the plan moves with them. |
 | 11 | Now tab, **Publish this plan** clicked | A recommendation nobody writes down cannot be wrong later. So SASH publishes the plan, with its forecast and its interval, before the airing happens. |
 | 12 | **The household follows it**, then **Advance 4 h** started | The household opens it. The flat is re-integrated with that window open, on the weather and the street that were already drawn, so the readings afterwards are what it would really have measured. |
-| 13 | Record tab, the settled ledger | And it gets scored against readings it genuinely produced. SASH takes the credit and the blame only for airings it proposed and that actually happened. |
+| 13 | Record tab, the settled ledger | And it gets scored against the readings that followed. SASH takes the credit and the blame only for airings it proposed and that actually happened. |
 | 14 | The held-out backtest | Above it, the harder version. The model is fitted on the first part of this home's record and asked to price every airing in the last part before seeing what it cost. |
 | 15 | Back to the verdict card | Across twenty-four simulated households it has never seen, SASH beat the household's own habit on seventy-one of ninety-four airings. On forty homes whose windows are physically identical, it announced a difference on two, at a nominal five per cent. |
 | 16 | Setup tab, the privacy panel | All of it from a camera it never looks through. The Ring client carries a path allowlist, and the test suite walks every media endpoint against a server that would have answered. |
@@ -60,11 +60,11 @@ those are reproducible with `sash bench --homes 24 --nulls 40 --days 120
 
 **The demo clicks the product's own buttons.** Beats 9, 11 and 12 press Advance,
 Publish, Follow and Advance again, and beat 13 waits on the product's own busy
-flag rather than on a fixed sleep. Nothing is faked, and if a button breaks the
-recording breaks with it.
+flag rather than on a fixed sleep. If a button breaks the recording breaks with
+it.
 
-**Beat 4 exists because beat 3 is a claim.** Showing a saving without showing how
-sure it is would be the version of this product a judge should not reward.
+**Beat 4 exists because beat 3 is a claim.** A saving is shown with how sure
+SASH is of it.
 
 **Beat 8 is the one to keep if anything has to be cut.** A ventilation adviser
 that says "these two windows are not yet distinguishable" is doing something

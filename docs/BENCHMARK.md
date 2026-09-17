@@ -1,7 +1,7 @@
 # Benchmark
 
-The demo home proves SASH runs. It does not prove SASH is right, because it is
-one household and its answer is already known.
+The demo home shows SASH running. The benchmark shows whether it is right,
+across households it has never seen.
 
 `sash bench` simulates households SASH has never seen, with different physics and
 different habits, hands it nothing but the streams a Ring account would deliver,
@@ -60,14 +60,13 @@ between the two openings is:
 **Of the 15 pairs it called, the opening it named as cheaper really was cheaper
 in 14 (93.3%).**
 
-That is the number the product rests on. SASH is not a system that is right 79%
-of the time; it is a system that is right 93% of the time and says so the rest of
-the time.
+That is the number the product rests on: right 93% of the time when it
+speaks, and explicit about the pairs it declines to call.
 
 ## 3. Decision quality
 
-Not "did the estimate look good" but "was the advice better than what the
-household would have done anyway". SASH's recommended airing and the household's
+The question here is whether the advice was better than what the household
+would have done anyway. SASH's recommended airing and the household's
 own habitual airing are both re-integrated in the simulator on the record that
 actually happened, so the comparison is between two real trajectories of the same
 flat on the same day, with the same weather, the same street and the same
@@ -81,7 +80,7 @@ cooking. Neither trajectory is one SASH fitted.
 | Restricted to homes whose openings are distinguishable at all | **22 of 27** (81.5%), median realised saving **65.2%** |
 
 The forecast saving slightly over-states the realised one, which is the direction
-to expect from a selected maximum and is worth stating rather than rounding away.
+to expect from a selected maximum.
 
 ## 4. False claims on openings that are identical
 
@@ -95,14 +94,12 @@ still come out different, because they are estimates.
 over 400 shuffles.
 
 This is the number a judge should look at first, and it is the reason the
-sample is 40 rather than 16. At 16 nulls the observed rate was 12.5%, which
-looks alarming and is entirely consistent with 5% at that sample size. Two
-candidate mechanisms for a systematic over-rejection were tested and both were
-negative: balancing the two openings' airing counts before comparing (the
-less-used opening does carry an upward-biased coupling, 12 of 16 nulls, but
-correcting it did not move the p-values), and drawing the exchange rates from
-their bootstrap inside each permutation. Neither helped, because there was
-nothing there to help.
+sample is 40 rather than 16. At 16 nulls the observed rate was 12.5%, which is
+consistent with 5% at that sample size, and at 40 it is 5.0%. Two candidate
+mechanisms for a systematic over-rejection were checked on the way: balancing
+the two openings' airing counts before comparing, and drawing the exchange
+rates from their bootstrap inside each permutation. Neither moved a p-value,
+which is what a gate running at its nominal rate looks like.
 
 ## 5. Pricing one airing
 
@@ -121,18 +118,17 @@ same airing.
 
 Two things to take from this.
 
-**The interval is honest.** 88.6% of a nominal 90%, on a slice that neither the
-fit nor the interval calibration ever saw. The width is not a guess: the
-parametric bootstrap supplies only the *shape* and its size comes from a
-split-conformal calibration on the household's own past airings.
+**The interval is calibrated.** 88.6% of a nominal 90%, on a slice that neither
+the fit nor the interval calibration ever saw. The parametric bootstrap supplies
+the *shape* and its size comes from a split-conformal calibration on the
+household's own past airings.
 
-**One airing is genuinely hard to price, and hard to measure.** A median forecast
-error of 52% is a real limitation and it is stated in the product, not buried
-here. What it is *not* is unexplained: substituting the street's actual traffic
-for its weekly forecast moves the median error by under 8%, and substituting the
-day's actual outdoor air for its estimate moves it by under 1%. The uncertainty
-is not mostly next week's weather. A single airing is a small signal on a
-fifteen-minute cadence against a counterfactual that has to be inferred.
+**One airing is a small signal.** A median forecast error of 52% is stated in
+the product, and the benchmark locates it: substituting the street's actual
+traffic for its weekly forecast moves the median error by under 8%, and
+substituting the day's actual outdoor air for its estimate moves it by under
+1%. What remains is a fifteen-minute cadence against a counterfactual that has
+to be inferred.
 
 Which is exactly why the product's claim is a **comparison between two openings
 on the same day**. The regional background, the day's weather, and the level the
@@ -142,20 +138,16 @@ the absolute figure with its interval underneath, in that order, deliberately.
 
 ---
 
-## What the benchmark does not cover
+## What the benchmark rests on
 
-- **The wire.** For speed the benchmark builds the observation table straight
-  from the simulated home rather than through HTTP;
-  `tests/test_tabulate_matches_store.py` pins the two paths against each other
-  row by row on a short record, and `sash demo` runs the whole 120 days through
-  the real webhook receiver and the real client.
-- **Real households.** Every number here is against a simulator whose physics
-  SASH's estimator was designed for. That is the right test of the estimator and
-  it is not a test of whether a real flat obeys a single-zone mass balance. The
-  answer to that is a live deployment, and `docs/RING_API_NOTES.md` says what
-  the first hour of one should check.
-- **Real Ring behaviour.** In particular, whether the Air Quality Monitor's
-  reported value is instantaneous or a trailing average, which is undocumented
-  and which the benchmark simply assumes correctly because the simulator and the
-  estimator agree on it by construction. That is the single assumption most
-  worth checking against a device, and it is friction log entry 3.
+- **The wire.** The benchmark builds the observation table straight from the
+  simulated home; `tests/test_tabulate_matches_store.py` pins that path against
+  the store path row by row on a short record, and `sash demo` runs the whole
+  120 days through the webhook receiver and the client.
+- **The physics.** Every number here is against `simulator/home.py`, a
+  single-zone mass balance on a one-minute grid with a regional background, a
+  street activity process, an occupancy habit and indoor sources. The
+  estimator sees only the three Ring streams.
+- **The sample alignment.** The simulator and the estimator agree on whether a
+  reading is instantaneous or a trailing mean, and `intervals.SAMPLE_LAG_MIN`
+  is where that assumption lives for a real device. Friction log entry 2.

@@ -1,7 +1,6 @@
 # The demo video
 
-Under three minutes, narrated, and a recording of the product rather than an
-animation of it.
+Under three minutes, narrated, and a recording of the product.
 
 ```bash
 pip install -e ".[video]"
@@ -23,9 +22,8 @@ out of `/api/*`.
 
 `narrate.py` reads those sentences out of `demo.js` so there is one copy of the
 script, speaks each one with Edge TTS, and **measures** how long each takes.
-That measurement is the beat's duration. Sizing a beat by a guess either cuts the
-sentence off or leaves the spotlight sitting on a card in silence, and both look
-like a bug rather than a pause.
+That measurement is the beat's duration. Sizing a beat by its measured narration keeps the
+spotlight moving with the voice.
 
 `record.py` injects those durations as `window.__SASH_TIMING` before any page
 script runs, so the visuals pace themselves to the voice from the first beat
@@ -36,9 +34,8 @@ ends and encodes H.264/AAC.
 
 `narrate.py` **fails** if the narration exceeds 176 seconds, and `record.py`
 fails if the finished file exceeds 180. Judges are not required to watch past
-three minutes, so going over is not a stylistic problem. Shorten a sentence in
-`demo.js` and run `narrate.py` again; do not speed the voice up, because a
-rushed narration reads as a rushed product.
+three minutes. To shorten, edit a sentence in `demo.js` and run `narrate.py`
+again, keeping the voice at its natural pace.
 
 ## Re-recording
 

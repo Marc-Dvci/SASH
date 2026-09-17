@@ -31,24 +31,24 @@ That is tracer gas decay, which normally needs a technician and a cylinder of ga
 And SASH refuses to over-claim. Every airing is held as it happened and only the label is shuffled. The courtyard window survives that. The balcony door does not, so SASH says these two are not yet distinguishable.
 
 9
-00:01:35,184 --> 00:01:44,610
-Now watch Ring deliver. Every event here is a signed webhook through the shipping receiver, and every reading is fetched by the same client that would call Ring.
+00:01:35,184 --> 00:01:45,018
+Now watch the events arrive. Every one is a signed webhook through the shipping receiver, and every reading is fetched by the same client that reads a Ring account.
 
 10
-00:01:44,610 --> 00:01:49,452
+00:01:45,018 --> 00:01:49,860
 The readings arrive, the model refits, and the plan moves with them.
 
 11
-00:01:49,452 --> 00:01:59,094
+00:01:49,860 --> 00:01:59,502
 A recommendation nobody writes down cannot be wrong later. So SASH publishes the plan, with its forecast and its interval, before the airing happens.
 
 12
-00:01:59,094 --> 00:02:09,864
+00:01:59,502 --> 00:02:10,272
 The household opens it. The flat is re-integrated with that window open, on the weather and the street that were already drawn, so the readings afterwards are what it would really have measured.
 
 13
-00:02:09,864 --> 00:02:18,834
-And it gets scored against readings it genuinely produced. SASH takes the credit and the blame only for airings it proposed and that actually happened.
+00:02:10,272 --> 00:02:18,834
+And it gets scored against the readings that followed. SASH takes the credit and the blame only for airings it proposed and that actually happened.
 
 14
 00:02:18,834 --> 00:02:28,764

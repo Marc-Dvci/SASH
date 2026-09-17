@@ -45,7 +45,8 @@ model or touches the network.
 | `ring/webhook.py` | HMAC-SHA256 over the raw bytes, `request_id` idempotency, enqueue. |
 | `ring/client.py` | Async REST client with a **path allowlist**. Media paths raise `MediaAccessDenied` before a socket opens. Absorbs `X-RateLimit-*`, backs off on 429. |
 | `ring/auth.py` | OAuth code exchange and refresh, at-rest obfuscation, plus `StaticTokenService` for the Playground's one-click token. |
-| `ingest.py` | `EventProcessor` applies one event. `Pipeline` is the queue (SQS-shaped). `AirQualityPoller` polls device status. `discover_devices` walks `/v1/devices`. |
+| `ingest.py` | `EventProcessor` applies one event. `Pipeline` is the queue (SQS-shaped). `AirQualityPoller` polls device status. `discover_devices` walks `/v1/devices` and decides each device's family from what it reports. |
+| `live.py` | `LiveRing`: the product against a Ring account. A Playground token or a linked app, discovery, default roles, the poller. `spike()` is the first minutes with an account as one command. |
 | `store.py` | SQLite. `reported_at` is the primary key of `aq_samples`, so a repeated reading is refused rather than stored. |
 | `analytics/intervals.py` | The observation table. Open fractions, activity, camera-outage exclusion, episode ids. |
 | `analytics/sources.py` | Indoor-emission detection by interval balance on the CO and humidity channels. |
@@ -56,26 +57,30 @@ model or touches the network.
 | `analytics/holdout.py` | The three-slice replay: fit, calibrate the interval, score coverage. |
 | `narrative.py` | Deterministic phrase renderer, with an optional Amazon Bedrock adapter behind the same interface. |
 | `service.py` | `Household`: one cached view feeding every route, invalidated when new data arrives or the device mapping changes. |
-| `api.py` | FastAPI. The two halves above. |
-| `cli.py` | `sash demo | seed | serve | fit | bench`. |
+| `api.py` | FastAPI. The two halves above, plus `/ring/link` and `/ring/callback` for account linking. |
+| `cli.py` | `sash demo | live | spike | seed | serve | fit | bench`. |
 | `web/` | Five views, no framework, no build step, inline SVG charts. |
 
 ---
 
 ## The simulator
 
-`simulator/` is a Ring account, not a fixture loader. It exists because the Ring
-Playground simulates camera events but not sensor events, so a sensor-first
-integration cannot be developed against it (friction log entry 1).
+`simulator/` is a Ring account rather than a fixture loader. It exists because
+the Ring Playground simulates camera events, and a sensor-first integration
+needs sensor events too (friction log entry 5).
 
 - `home.py` is a single-zone mass balance producing PM2.5, humidity, temperature
   and CO on a one-minute grid, driven by a regional background, a street activity
   process, an occupancy habit and indoor sources. It is the **ground truth**: the
   benchmark scores SASH against it and SASH never sees it.
-- `ring_api.py` serves the documented Ring endpoints for that home, including the
-  three media endpoints, which **do answer**. That is deliberate: it means the
-  client-side refusal is what `tests/test_no_media.py` proves, against a server
-  that would have complied.
+- `ring_api.py` serves the documented Ring endpoints for that home as JSON:API
+  compound documents, with Ring-style device ids, ISO 8601 `reported_at`
+  values, version 1.1 webhook envelopes and the `X-RateLimit-*` headers. It
+  includes the three media endpoints, which **do answer**. That is deliberate:
+  it means the client-side refusal is what `tests/test_no_media.py` proves,
+  against a server that would have complied. `tests/test_ring_contract.py`
+  holds the reference pages' own example payloads, so the simulator and the
+  client are both checked against Ring rather than against each other.
 - `seed.py` replays a household's history through the **real** webhook receiver
   and the **real** client. Signed payloads, `request_id` retries, repeated status
   reads. A bug in signature verification, idempotency, the `reported_at` dedupe
@@ -88,6 +93,8 @@ integration cannot be developed against it (friction log entry 1).
 `sash demo` runs the product with that simulated account still attached, so
 **Advance** delivers events the same way: signed webhooks to `/ring/webhook`, and
 readings fetched by the real client from `GET /v1/devices/{id}/status`.
+`sash live` runs the same product against a Ring account, with the same client
+pointed at `api.amazonvision.com`.
 
 ---
 
@@ -142,4 +149,5 @@ default is a deterministic phrase renderer, so the wording of the decision card
 can be produced by a model or by code and the **numbers are identical either
 way**. The model is never asked what to recommend, only how to say it.
 
-The stack has not been deployed. See `docs/AWS.md`.
+The stack is deployed in `us-east-1` and seeded with the demo household. See
+`docs/AWS.md`.

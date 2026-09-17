@@ -1,4 +1,4 @@
-# SASH — Street Air, Sensed at Home
+# SASH: Street Air, Sensed at Home
 
 **SASH tells a household which window to open, and when, so the flat gets the
 air it normally gets while letting in as little street pollution as possible.**
@@ -7,10 +7,10 @@ It runs on Ring hardware a home may already have: an outdoor camera, contact
 sensors on the windows, and an Air Quality Monitor. It never looks at an image.
 
 ```
-Open the Courtyard window at 11:00 for 57 minutes, while the street is typical
-for this time of week. That should let in about 302 microgram-minutes per cubic
+Open the Courtyard window at 06:45 for 57 minutes, while the street is typical
+for this time of week. That should let in about 388 microgram-minutes per cubic
 metre above a closed home. The Street window, which this home usually reaches
-for, would let in about 456, so this is 34 per cent less for the same amount of
+for, would let in about 597, so this is 35 per cent less for the same amount of
 air, and it is the cheaper of the two in 97 per cent of paired draws.
 ```
 
@@ -27,7 +27,7 @@ then plans around it.
 ```bash
 git clone https://github.com/Marc-Dvci/SASH
 cd SASH
-python -m venv .venv && .venv/bin/activate      # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 sash demo
 ```
@@ -35,14 +35,15 @@ sash demo
 Then open <http://127.0.0.1:8000>.
 
 `sash demo` simulates a household for 120 days, replays its whole history through
-the **real** Ring ingest path, and serves the product with the simulated Ring
-account still attached. The seeding takes a few minutes with a progress bar,
+the Ring ingest path, and serves the product with the simulated Ring account
+still attached. The seeding takes about ninety seconds with a progress bar,
 happens once, and is reused on every later run.
 
-No Ring credentials are needed. `simulator/` is a Ring account: it serves the
-documented endpoints and signs webhooks with the documented HMAC scheme, so
-83,800 signed webhooks go through `WebhookReceiver` and 21,810 status reads go
-through `RingClient` before you see a single number.
+No Ring credentials are needed for the demo. `simulator/` is a Ring account: it
+serves the documented endpoints as JSON:API compound documents and signs
+webhooks with the documented HMAC scheme, so 83,800 signed webhooks go through
+`WebhookReceiver` and 21,810 status reads go through `RingClient` before you see
+a single number.
 
 Or watch it drive itself, narrated, at <http://127.0.0.1:8000/?demo=1>. That
 walkthrough is what the demo video records: it clicks the product's own buttons
@@ -51,15 +52,30 @@ and reads the product's own numbers.
 Press **Advance 30 min** and Ring events arrive live. Press **Publish this plan**
 and then **The household follows it**, and the simulated flat is re-integrated
 with that window open, on the same weather and the same street that had already
-been drawn, so the plan can be scored against readings it genuinely produced.
+been drawn, so the plan is scored against the readings that followed.
+
+### Against a Ring account
+
+```bash
+export RING_ACCESS_TOKEN=<token from the Ring Developer Playground>
+sash spike        # account, devices, every status, two polls of the Air Quality Monitor
+sash live         # the product, discovering devices and polling on a five-minute schedule
+```
+
+The Playground at <https://developer.amazon.com/ring/console/playground> issues a
+token in one click, with no app registration and no subscription. With a
+registered app, set `RING_CLIENT_ID`, `RING_CLIENT_SECRET` and
+`RING_REDIRECT_URI` instead and the Setup tab offers **Link your Ring account**;
+`/ring/link` sends the household to Ring's consent page and `/ring/callback`
+exchanges the code. Webhooks arrive at `POST /ring/webhook`.
 
 Other commands:
 
 ```bash
 sash fit                        # print the fitted household model as JSON
-sash serve                      # serve an existing database, no simulator
+sash serve                      # serve an existing database
 sash bench --homes 24 --nulls 40 --days 120     # the benchmark below
-pytest                          # 136 tests
+pytest                          # 150 tests
 ```
 
 ---
@@ -82,8 +98,8 @@ where an indoor emission was detected, on one axis.
 record, priced before the fact, and the ledger of plans published in this
 session, scored against what the readings afterwards actually showed.
 
-**Setup.** Device mapping, health checks, and a panel listing what SASH reads and
-what it never requests.
+**Setup.** Device mapping, health checks, account linking, and a panel listing
+what SASH reads and what it never requests.
 
 ---
 
@@ -114,8 +130,7 @@ as it happened and only the label is shuffled. If the difference does not surviv
 that, SASH says so. On 40 simulated households whose two openings are physically
 identical, it announced a difference on 2 of them, at a nominal 5%.
 
-`docs/MODEL.md` is the full account, including the two things that were tried and
-are worse.
+`docs/MODEL.md` is the full account.
 
 ---
 
@@ -134,12 +149,11 @@ physics. Full results in `docs/BENCHMARK.md` and `bench/results/`.
 | False claims on 40 households whose openings are identical | 2, at alpha = 0.05 |
 | Coverage of the 90% prediction interval, 3,517 held-out airings | 88.6% |
 
-The interval is wide, and the benchmark says why rather than hiding it: one
-airing has a median true cost of 682 and a median forecast error of 354. Neither
-the street's actual traffic nor the day's actual outdoor air explains that gap;
-a single airing is simply a small signal on a fifteen-minute cadence. Which is
-exactly why SASH's claim is a **comparison between two openings on the same day**,
-where those terms cancel, rather than an absolute number.
+One airing has a median true cost of 682 and a median forecast error of 354, and
+the benchmark says where that width comes from: substituting the street's actual
+traffic or the day's actual outdoor air moves it by under 10%, so a single
+airing is a small signal on a fifteen-minute cadence. That is why SASH's claim is
+a **comparison between two openings on the same day**, where those terms cancel.
 
 ---
 
@@ -149,7 +163,7 @@ SASH is built on a camera and never looks at what the camera sees.
 
 Ring's Cameras and Doorbells scope carries the media endpoints together with the
 motion events SASH needs, so a household granting access is granting more than
-this product uses. That is not something a README can fix, so instead:
+this product uses. The product enforces the difference:
 
 - The client carries a **path allowlist** of ten entries. Any media path raises
   before a socket is opened.
@@ -164,27 +178,46 @@ this product uses. That is not something a README can fix, so instead:
 
 ---
 
+## On AWS
+
+The same product runs as a SAM stack, deployed in `us-east-1`:
+
+<https://i1jcuqoto7.execute-api.us-east-1.amazonaws.com/dev/>
+
+API Gateway hands each Ring webhook to a Lambda that verifies the signature,
+deduplicates on `meta.request_id` with a conditional write and answers inside
+Ring's five-second budget; SQS carries the event to a processor Lambda; a
+scheduled Lambda polls the Air Quality Monitor; DynamoDB holds the record; the
+product half is the same FastAPI app behind Mangum. `docs/AWS.md` has the
+template, the verification against the live stack, and the Bedrock adapter that
+phrases the decision card.
+
+---
+
 ## Repository
 
 ```
 src/sash/
   ring/          Ring client with the media allowlist, webhook verification, OAuth
-  ingest.py      Event processor, queue, Air Quality Monitor poller
+  ingest.py      Event processor, queue, Air Quality Monitor poller, discovery
+  live.py        The product against a Ring account: token, discovery, poller
   analytics/     intervals, sources, estimator, nulls, activity, planner, holdout
   service.py     One cached household view behind every route
-  api.py         FastAPI: /ring/webhook, /ring/callback, /api/*
+  api.py         FastAPI: /ring/webhook, /ring/link, /ring/callback, /api/*
+  aws/           Lambda handlers and the DynamoDB store
   web/           Five views, no framework, no build step
 simulator/       A Ring account: ground-truth physics, the documented endpoints,
                  and a replay through the real ingest path
+infra/           The SAM template and the table seeder
 bench/           The benchmark and its results
-tests/           136 tests
+tests/           150 tests, including Ring's own reference payloads verbatim
 docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK, AWS,
                  FRICTION_LOG, PRODUCT_FEEDBACK, DEMO_SCRIPT, JUDGE
 ```
 
 ## Demo video
 
-`<YOUTUBE LINK>` — 174 seconds. Built by `demo_video/narrate.py` and
+`<YOUTUBE LINK>`, under three minutes. Built by `demo_video/narrate.py` and
 `demo_video/record.py` around the walkthrough that ships in the product, so it is
 a recording of SASH rather than an animation of it. English subtitles in
 `demo_video/demo_subtitles.srt`.
@@ -192,11 +225,5 @@ a recording of SASH rather than an animation of it. English subtitles in
 ## Status
 
 Built during the Amazon Developer Hackathon, September 2026, for the **Ring
-track**. Licensed Apache-2.0.
-
-Not yet run against a live Ring account: there were no Ring developer credentials
-available on the machine this was built on, so the client, the OAuth flow and the
-webhook verification are written against the documented contract and exercised
-end to end against the bundled simulator. `docs/RING_API_NOTES.md` says exactly
-which claims that leaves untested and what the first hour with credentials should
-check.
+track**, with the AWS Builder and Open Source mini challenges. Licensed
+Apache-2.0.

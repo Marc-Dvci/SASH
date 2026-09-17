@@ -2,9 +2,8 @@
 
 SASH is built on a camera and never looks at what the camera sees.
 
-That is not a slogan, it is the design constraint the whole product was built
-around, and this document says exactly how it is enforced and where the
-enforcement stops.
+That is the design constraint the whole product was built around, and this
+document says exactly how it is enforced.
 
 ---
 
@@ -38,7 +37,7 @@ and goes is exactly what this product must not accumulate, and
 
 ## How the media refusal is enforced
 
-Not by a promise. By a path allowlist in `ring/client.py`:
+By a path allowlist in `ring/client.py`:
 
 ```python
 ALLOWED_PATHS = (
@@ -59,7 +58,7 @@ Ten entries. Any path containing `/media/` raises `MediaAccessDenied` **before a
 socket is opened**; anything else off the list raises `PathNotAllowed`. Adding to
 that list is the only way to widen the client's reach, which makes the blast
 radius of the Ring grant reviewable in one screen. A test asserts the list stays
-under twelve entries, because a control nobody reads is not a control.
+under twelve entries, so the control stays short enough to read.
 
 The three refused methods (`download_video`, `download_image`, `start_live_view`)
 exist on the client on purpose, so the refusal is discoverable from the client's
@@ -73,17 +72,14 @@ refusal tested against a server that 404s proves nothing.
 
 ---
 
-## The scope SASH cannot decline
+## The scope, and what SASH does with it
 
 Ring's Cameras and Doorbells scope carries the media endpoints together with the
-motion events SASH needs. There is no events-only camera scope, so a household
-granting SASH access to its camera is granting more than SASH uses, and cannot
-tell that from the consent screen. That is friction log entry 6, and it is the
-one API gap in this project that a developer cannot engineer around.
-
-Everything in this document is compensation for it: the allowlist, the tests, the
-Setup panel that lists both columns, and the fact that the panel is in the
-product rather than in a policy page.
+motion events SASH needs, so a household granting SASH access to its camera is
+granting more than SASH uses. That is friction log entry 6. Everything in this
+document is how SASH answers it: the allowlist, the tests, the Setup panel that
+lists both columns, and the fact that the panel is in the product rather than
+in a policy page.
 
 ---
 
@@ -101,7 +97,7 @@ One SQLite file on the machine running SASH. Nothing leaves it.
 | `aq_threshold_events` | Ring's own alert crossings |
 | `device_health` | Online and offline transitions |
 | `plans` | What SASH recommended, what it forecast, and what the readings then showed |
-| `meta` | Configuration, and the OAuth refresh token, obfuscated at rest |
+| `meta` | Configuration, and the OAuth tokens, obfuscated at rest |
 
 There is no user table, no location beyond what Ring reports for the device, and
 no analytics or telemetry of any kind. SASH makes no outbound request to anything

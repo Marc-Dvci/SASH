@@ -66,9 +66,9 @@ afterwards from the readings, and compared with the simulator's own answer.
 | Median bias of that measurement | -39.3 |
 | Coverage of the 90% interval | 88.6% |
 
-One airing is genuinely hard to price, and it is hard to measure afterwards as
-well. That is why the product's claim is a comparison between two openings on
-the same day rather than an absolute number: the terms that make a single
-airing uncertain are common to both sides of it.
+One airing is a small signal to price in advance and to measure afterwards.
+That is why the product's claim is a comparison between two openings on the
+same day: the terms that make a single airing uncertain are common to both
+sides of it.
 
 Ran in 445 s.

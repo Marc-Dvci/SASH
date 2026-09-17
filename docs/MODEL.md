@@ -30,7 +30,7 @@ every fifteen minutes.
 
 The Air Quality Monitor reports about every fifteen minutes, and
 `GET /v1/devices/{id}/status` returns the last reported reading rather than a
-live one. The finest honest unit is therefore the gap between two consecutive
+live one. The finest usable unit is therefore the gap between two consecutive
 fresh readings, with everything else aggregated onto it: how much of that gap
 each opening was open for, how many vehicle-motion events the camera saw, and
 whether the camera was online at all.
@@ -52,12 +52,11 @@ coming through it carries. SASH predicts `C1` and compares candidates on the
 reading each one implies. Residuals are then in micrograms per cubic metre of
 measured particulate, on one scale, comparable across candidates.
 
-The alternative -- dividing the observed slope by the attenuation factor and
-fitting the deconvolved slope -- is where this started, and it does not work. The
-same division that recovers the slope multiplies the residuals by its reciprocal,
-so a candidate theta twice as large arrives with residuals twice as large and any
-search scoring candidates on those residuals walks to the bottom of the grid
-every time.
+Predicting the reading, rather than deconvolving the slope, is what makes the
+residuals comparable: dividing the observed slope by the attenuation factor
+multiplies the residuals by its reciprocal, so a candidate theta twice as large
+arrives with residuals twice as large and a search on those residuals walks to
+the bottom of the grid every time.
 
 **An offline camera is not a quiet street.** A camera that is offline reports no
 vehicle motion. Treating that as a quiet street is the easiest way in this whole
@@ -65,12 +64,12 @@ problem to invent a coupling, so intervals overlapping an outage are marked and
 excluded from every street term. Outages are reconstructed from
 `device_offline` and `device_online` lifecycle webhooks.
 
-**Sample alignment is a stated assumption, not a fact.** Ring does not document
-whether a reported value is instantaneous or an average over the preceding
-cadence, and the two imply alignments half a reporting period apart. On the
-simulator, the wrong choice moves a recovered exchange rate from 4.20 to 0.20.
+**Sample alignment is a stated assumption.** Whether a reported value is
+instantaneous or an average over the preceding cadence is undocumented, and the
+two imply alignments half a reporting period apart. On the simulator, the wrong
+choice moves a recovered exchange rate from 4.20 to 0.20.
 `intervals.SAMPLE_LAG_MIN` is that assumption, in one place, with the candidates
-for a per-household calibration next to it. It is entry 3 in the friction log.
+for a per-household calibration next to it. It is entry 2 in the friction log.
 
 ---
 
@@ -109,6 +108,15 @@ the side telling the truth.
 With theta measured on the CO channel and held fixed, the particle channel has
 one unknown left, and that is g.
 
+**What the tracer needs from the device.** The decays SASH fits run from a
+cooking peak of one to a few ppm down to a floor near 0.1 ppm
+(`CO_TRACER_FLOOR_PPM = 0.12`), so the channel has to resolve hundredths of a
+ppm; the simulator reports CO to 0.01 ppm with 0.02 ppm of noise, and Ring's
+product alert at 9 ppm sits far above every decay the fit uses. The tracer is
+what the reporting gate waits for: an opening is reported once enough of its
+airings began while the CO channel was above that floor, and until then the
+Windows tab says how many more it needs.
+
 ---
 
 ## 3. Detecting a source, not its onset
@@ -140,11 +148,10 @@ monoxide is high and falling fast because the window is open. There `s` is zero,
 correctly, and the airing is kept.
 
 What is left over is candles, a toaster, a vacuum cleaner: particles with no
-combustion and no moisture. Nothing in a four-channel monitor can see those, and
-saying so is better than pretending. They are handled downstream by a loss that
+combustion and no moisture. They are handled downstream by a loss that
 **redescends above the fit and stays quadratic below it**, because an undetected
-emission can only push a reading up. That asymmetry is not a robustness trick, it
-is the shape of the contamination.
+emission can only push a reading up. That asymmetry is the shape of the
+contamination.
 
 ---
 
@@ -166,11 +173,10 @@ explained by that opening's own coupling.
 Both `Cstar_out` and every `g_w` are constrained non-negative. The fit is a
 non-negative ridge, and the residual loss is the one-sided one from section 3.
 
-Two things were tried here and are worse, both measured rather than reasoned
-about: a separate background per opening (physically tempting, and it breaks the
-ranking by absorbing one opening's excess into its own background), and a
-three-column design adding a floor-movement term (marginally worse across every
-seed).
+The shared background was chosen by measurement: a separate background per
+opening absorbs one opening's excess into its own background and loses the
+ranking, and a three-column design with a floor-movement term is marginally
+worse across every seed.
 
 ---
 
@@ -179,10 +185,10 @@ seed).
 Two openings in one flat produce two different numbers even when they are the
 same window twice, because the estimates are noisy and the household used them on
 different days. A product that announces "your courtyard window is better" on
-that basis is telling a story about noise.
+that basis is describing noise.
 
 So before SASH says anything, every airing is held exactly as it happened and
-only the **label** -- which opening it belonged to -- is shuffled. Under the null
+only the **label**, which opening it belonged to, is shuffled. Under the null
 that the two openings behave the same, that shuffle changes nothing real, so the
 spread of the shuffled gaps is the spread the estimator produces from nothing.
 The observed gap has to sit outside it.
@@ -205,7 +211,7 @@ whose openings really are nearly identical.
 **How much air.** The target is the household's **own historical median** air
 changes per twelve hours, computed from its own record. SASH moves *when* a
 household airs and *which* opening it uses, and never *how much* air it gets.
-Recommending a shorter airing would score beautifully on a particulate metric and
+Recommending a shorter airing would score well on a particulate metric and
 would be advice to under-ventilate a flat. The duration for each candidate is
 therefore `60 * target / theta_w`, so every candidate delivers the same air, and
 `tests/test_planner.py` pins that invariant.
@@ -240,7 +246,7 @@ Coverage is then measured on a third slice that neither the fit nor the
 calibration has seen.
 
 On the benchmark that comes out at 88.6% coverage of a nominal 90% interval over
-3,517 held-out airings, which is the number that says the width is honest.
+3,517 held-out airings, which is the number that says the width is calibrated.
 
 The width itself is large, and the benchmark says why. Against the simulator's
 own ground truth, the median error of a **forecast** of one airing is 354
@@ -248,15 +254,15 @@ micrograms per cubic metre times minutes on a median airing of 682, and the
 median error of the **retrospective measurement** of the same airing is 178. One
 airing is hard to price in advance and hard to measure afterwards.
 
-This was worth chasing down, because the obvious explanation is wrong. Substituting
-the street's actual traffic for its forecast, or the day's actual outdoor air for
-its estimate, moves the median error by under ten per cent. The uncertainty is not
-mostly the week ahead. It is that a single airing is a small signal measured on a
-fifteen-minute cadence against a counterfactual that has to be inferred.
+The benchmark locates that width. Substituting the street's actual traffic for
+its forecast, or the day's actual outdoor air for its estimate, moves the median
+error by under ten per cent. What remains is that a single airing is a small
+signal measured on a fifteen-minute cadence against a counterfactual that has to
+be inferred.
 
 Which is exactly why the product's claim is a **comparison** rather than an
-absolute number. The terms that make one airing uncertain -- the regional
-background, the day's weather, the level the flat happens to be sitting at -- are
+absolute number. The terms that make one airing uncertain, the regional
+background, the day's weather, the level the flat happens to be sitting at, are
 common to both sides of it and cancel in the difference. The decision card leads
 with the comparison and reports the absolute figure with its interval underneath.
 
@@ -271,25 +277,25 @@ trajectory is integrated forward from the reading before the opening opened,
 using only the sealed-home terms, and the realised intake is the area between
 that shadow and the readings that actually arrived.
 
-Three rules keep that honest.
+Three rules govern the scoring.
 
-**A plan the household ignored is not evidence about the forecast.** If the named
+**A plan is scored only when the household acted on it.** If the named
 opening was open for less than 40% of the window, the plan is recorded as not
-followed and not scored. SASH does not open windows and takes credit and blame
+followed and left unscored. SASH does not open windows and takes credit and blame
 only for airings it proposed that actually happened.
 
-**Contamination during the airing makes it unverifiable, not bad.** If an indoor
-source ran, or a second opening was open, there is no airing to measure, and the
-plan is recorded as unscored rather than scored badly.
+**Contamination during the airing makes it unverifiable.** If an indoor
+source ran, or a second opening was open, there is no isolated airing to
+measure, and the plan is recorded as unscored.
 
 **Contamination after the airing truncates the tail.** The forecast prices the
 airing plus a ninety-minute recovery tail, because load admitted through a window
 is still in the room after the window shuts. A household that airs at eleven and
 cooks at half past one has a perfectly measurable airing and a contaminated tail.
-Discarding the airing for that would throw away most of the record -- it took the
-demo home's scorable airings from 43 down to 29 -- so the tail is integrated only
-while it stays clean and the rest of it is completed at the home's own measured
-decay rate, which is what the forecast assumed the room would do anyway.
+The tail is integrated only while it stays clean and the rest of it is
+completed at the home's own measured decay rate, which is what the forecast
+assumed the room would do anyway; on the demo home that keeps 43 scorable
+airings rather than 29.
 
 The floor the shadow decays to is measured **retrospectively**, from the quiet
 readings on either side of the airing, rather than carried over from whenever the
@@ -301,18 +307,19 @@ median airing of 682.
 
 ---
 
-## 9. What SASH does not claim
+## 9. What the claim is
 
-- **It has no outdoor sensor.** The outdoor estimate on the Windows tab is a
-  by-product of the fit across the openings, not a measurement.
-- **It does not predict the street.** It forecasts against this street's own
-  weekly rhythm. A road closure or a delivery surge is not in it, and the UI says
+- **A comparison between two openings on the same day.** The regional
+  background, the weather and the level the flat sits at are common to both
+  sides and cancel in the difference. The decision card leads with it.
+- **A ranking that survived a shuffle.** An opening is named cheaper only when
+  the difference outlives the permutation of labels in section 5.
+- **This street's own weekly rhythm as the forecast.** The planner integrates
+  against the median activity for this hour of this weekday, and the UI says
   so where the profile is drawn.
-- **It cannot see every indoor source.** Candles, toasters and vacuum cleaners
-  emit particles with no combustion and no moisture. The one-sided loss limits
-  the damage; it does not detect them.
-- **It cannot price one airing precisely.** Section 7. The comparison is the
-  claim.
-- **It never looks at an image.** Vehicle classification arrives as event
-  metadata. The client carries a path allowlist and refuses every media endpoint
+- **An outdoor estimate that is a by-product of the fit.** `Cstar_out` is
+  shared across the openings and shown on the Windows tab as the quiet-street
+  level the home's own record implies.
+- **Event metadata only.** Vehicle classification arrives as a field on a
+  webhook. The client carries a path allowlist and refuses every media endpoint
   before a socket is opened.
