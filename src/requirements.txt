@@ -1,0 +1,4 @@
+fastapi>=0.110
+httpx>=0.26
+numpy>=1.26
+mangum>=0.17

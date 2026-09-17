@@ -42,7 +42,7 @@ def _secret(cache: dict[str, Any] = {}) -> dict[str, str]:  # noqa: B006
 def _store(table: Any | None = None) -> DynamoStore:  # pragma: no cover - needs boto3
     from .dynamo_store import table_from_env
 
-    return DynamoStore(table or table_from_env(), now=time.time())
+    return DynamoStore(table or table_from_env(), now=time.time(), read_ttl_s=60.0)
 
 
 def _body(event: dict[str, Any]) -> bytes:
@@ -206,8 +206,31 @@ def api():  # pragma: no cover - needs mangum and boto3
     from mangum import Mangum
 
     from ..api import create_app
+    from ..service import Household
 
-    return Mangum(create_app(_store()), lifespan="off")
+    store = _store()
+    household = Household(store, clock=_clock(store))
+    return Mangum(create_app(store, household=household), lifespan="off")
+
+
+def _clock(store: Any, *, ttl_s: float = 60.0) -> Callable[[], float]:
+    """The product's "now" on AWS.
+
+    A table seeded with the demo household carries the instant its tape was
+    played to, and "now" is that instant, as in ``sash demo``. A table filled
+    by Ring is on the wall clock. The meta key is re-read once a minute, so a
+    container started before the table was seeded picks it up.
+    """
+    state: dict[str, float] = {"read_at": -ttl_s}
+    cursor: dict[str, Any] = {"value": None}
+
+    def now() -> float:
+        if time.monotonic() - state["read_at"] >= ttl_s:
+            cursor["value"] = store.get_meta("demo_cursor")
+            state["read_at"] = time.monotonic()
+        return float(cursor["value"]) if cursor["value"] else time.time()
+
+    return now
 
 
 def _reply(status: int, body: dict[str, Any]) -> dict[str, Any]:

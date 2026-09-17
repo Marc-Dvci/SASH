@@ -78,8 +78,10 @@ Resources:
 
   SashTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
-      TableName: !Sub "sash-${Stage}"
+      TableName: !Sub "sash-${Stage}-household"
       BillingMode: PAY_PER_REQUEST
       # Single table. pk is the household, sk carries the record kind and its
       # time, so an interval scan is one query over a time range.
@@ -253,6 +255,19 @@ Resources:
                 Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
           - !Ref AWS::NoValue
       Events:
+        # Keeps one container warm, so the fitted household view it caches is
+        # there when somebody opens the app.
+        Warm:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Input: '{"resource": "/api/recommendation", "path": "/api/recommendation", "httpMethod": "GET", "headers": {}, "requestContext": {"resourcePath": "/api/recommendation", "httpMethod": "GET", "stage": "warm"}, "multiValueHeaders": {}, "queryStringParameters": null, "body": null, "isBase64Encoded": false}'
+        Root:
+          Type: Api
+          Properties:
+            Path: /
+            Method: any
+            RestApiId: !Ref Api
         Proxy:
           Type: Api
           Properties:

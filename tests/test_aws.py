@@ -49,11 +49,21 @@ class FakeTable:
         item = self.items.get((Key["pk"], Key["sk"]))
         return {"Item": dict(item)} if item else {}
 
-    def update_item(self, Key, UpdateExpression, ExpressionAttributeValues):  # noqa: N803
+    #: Words DynamoDB refuses as bare attribute names in an expression. The
+    #: real service rejects the whole call; the double does the same, so a
+    #: reserved word reaching an UpdateExpression fails here first.
+    RESERVED = {"online", "label", "status", "name", "state", "value", "source", "at"}
+
+    def update_item(self, Key, UpdateExpression, ExpressionAttributeValues, ExpressionAttributeNames=None):  # noqa: N803
         item = self.items.setdefault((Key["pk"], Key["sk"]), dict(Key))
+        names = ExpressionAttributeNames or {}
         assignments = UpdateExpression.replace("SET ", "").split(",")
         for assignment in assignments:
             field, placeholder = (p.strip() for p in assignment.split("="))
+            if field.startswith("#"):
+                field = names[field]
+            elif field in self.RESERVED:
+                raise ValueError(f"Invalid UpdateExpression: reserved keyword: {field}")
             item[field] = ExpressionAttributeValues[placeholder]
 
     def query(self, KeyConditionExpression, ExpressionAttributeValues, **_):  # noqa: N803
@@ -333,3 +343,12 @@ def test_the_poller_refuses_a_repeated_reading(store):
     assert first["aq_new_samples"] == 1
     assert second["aq_repeat_readings"] == 1
     assert second["aq_new_samples"] == 0
+
+
+def test_the_deployed_clock_follows_a_seeded_tape(store):
+    from sash.aws.handlers import _clock
+
+    now = _clock(store, ttl_s=0.0)
+    assert abs(now() - __import__("time").time()) < 5
+    store.set_meta("demo_cursor", 1789022700.0)
+    assert now() == 1789022700.0

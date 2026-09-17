@@ -33,6 +33,7 @@ in-memory double that implements the same conditional semantics.
 from __future__ import annotations
 
 import json
+import time
 from decimal import Decimal
 from typing import Any, Iterable
 
@@ -70,14 +71,29 @@ def _num(value: Any) -> float | None:
 class DynamoStore:
     """The subset of :class:`sash.store.Store` the ingest path needs."""
 
-    def __init__(self, table: Any, household_id: str = "default", *, now: float = 0.0):
+    def __init__(
+        self,
+        table: Any,
+        household_id: str = "default",
+        *,
+        now: float = 0.0,
+        read_ttl_s: float = 0.0,
+    ):
         self.table = table
         self.pk = f"HOUSEHOLD#{household_id}"
         self.now = now
+        #: How long a range read is reused inside one Lambda container. The
+        #: product half reads the whole record to fit a household and every
+        #: route asks again; the writers are other Lambdas on a five-minute
+        #: schedule, so a minute of reuse costs nothing a household can see.
+        #: Any write from this container clears it.
+        self.read_ttl_s = read_ttl_s
+        self._reads: dict[tuple[str, str | None, str | None], tuple[float, list]] = {}
 
     # --- generic ---------------------------------------------------------
 
     def _put(self, item: dict[str, Any], *, unique: bool = False) -> bool:
+        self._reads.clear()
         kwargs: dict[str, Any] = {"Item": _clean(item)}
         if unique:
             kwargs["ConditionExpression"] = "attribute_not_exists(pk)"
@@ -90,6 +106,17 @@ class DynamoStore:
             raise
 
     def _query(self, prefix: str, *, start: str | None = None, end: str | None = None):
+        if self.read_ttl_s > 0:
+            key = (prefix, start, end)
+            hit = self._reads.get(key)
+            if hit is not None and time.monotonic() - hit[0] < self.read_ttl_s:
+                return hit[1]
+            rows = self._query_table(prefix, start=start, end=end)
+            self._reads[key] = (time.monotonic(), rows)
+            return rows
+        return self._query_table(prefix, start=start, end=end)
+
+    def _query_table(self, prefix: str, *, start: str | None = None, end: str | None = None):
         low = prefix + (start or "")
         high = prefix + (end or "￿")
         out: list[dict[str, Any]] = []
@@ -160,9 +187,13 @@ class DynamoStore:
         label: str | None = None,
         orientation: str | None = None,
     ) -> None:
+        self._reads.clear()
         self.table.update_item(
             Key={"pk": self.pk, "sk": f"DEVICE#{device_id}"},
-            UpdateExpression="SET app_role = :r, label = :l, orientation = :o",
+            # ``label`` and ``online`` are DynamoDB reserved words, so every
+            # attribute name in an update goes through a placeholder.
+            UpdateExpression="SET #r = :r, #l = :l, #o = :o",
+            ExpressionAttributeNames={"#r": "app_role", "#l": "label", "#o": "orientation"},
             ExpressionAttributeValues={":r": app_role, ":l": label, ":o": orientation},
         )
 
@@ -204,9 +235,11 @@ class DynamoStore:
                 "at": at,
             }
         )
+        self._reads.clear()
         self.table.update_item(
             Key={"pk": self.pk, "sk": f"DEVICE#{device_id}"},
-            UpdateExpression="SET online = :o",
+            UpdateExpression="SET #on = :o",
+            ExpressionAttributeNames={"#on": "online"},
             ExpressionAttributeValues={":o": online},
         )
 
