@@ -12,6 +12,16 @@ python demo_video/record.py      # starts SASH, records, muxes
 Output: `demo_video/sash-demo.mp4`, plus `demo_subtitles.srt` carrying the same
 sentences word for word.
 
+```bash
+python demo_video/frames.py      # one still per beat, out of the finished file
+```
+
+writes `frames/beatNN.png` for every beat (and `_late` for the beats that wait
+on the product). Read them against the table in `docs/DEMO_SCRIPT.md`: each one
+should show the thing its sentence is about, lit, with nothing left over from
+the beat before. That is the check a viewer performs, so it is the check to run
+before uploading.
+
 ## How it fits together
 
 The walkthrough lives **in the product**, at `src/sash/web/demo.js`, and runs at
@@ -29,6 +39,23 @@ spotlight moving with the voice.
 script runs, so the visuals pace themselves to the voice from the first beat
 rather than catching up to it. Then Playwright records, and ffmpeg fades both
 ends and encodes H.264/AAC.
+
+The page is laid out and captured at 1600x900 and scaled to 1920x1080 in the
+encode, so YouTube serves it as 1080p. Playwright's own recorder writes a
+keyframe every 128 frames at a visibly lower quality than its neighbours, one
+soft frame every five seconds; `record.py` finds that cadence from the
+capture's sharpness and replaces each such frame with the one before it, so
+the clock does not move and the flicker is gone.
+
+## How the picture stays still
+
+The walkthrough scrolls only as far as it takes to bring the thing being
+described into the band between the sticky header and the caption, and not at
+all when it is already there. The ring of light is clipped to that band, its
+label sits on its own plate, the cursor appears only to press a button, and
+switching tabs clears whatever was lit before. Beats that press a button light
+the button; beats that wait on the product (Advance, Publish) light the card
+that will change and measure it again once it has.
 
 ## The two guards
 

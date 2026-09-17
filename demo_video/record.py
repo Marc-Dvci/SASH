@@ -33,6 +33,12 @@ for path in (str(ROOT), str(ROOT / "src")):
         sys.path.insert(0, path)
 
 VIEWPORT = (1600, 900)
+#: The page is laid out and captured at 1600x900 and scaled to 1920x1080 in
+#: the encode, so YouTube serves it as 1080p rather than 720p. The recorder
+#: captures at the viewport's CSS size whatever the device scale factor is, so
+#: the scale has to happen here.
+FRAME = (1920, 1080)
+FPS = 25
 TAIL_SECONDS = 2.6
 OUT = HERE / "sash-demo.mp4"
 
@@ -175,23 +181,78 @@ def find_start(video: pathlib.Path, *, look: float = 40.0) -> float:
     return 0.0
 
 
+def find_smeared_frames(video: pathlib.Path) -> list[int]:
+    """Frame numbers the capture's own encoder smeared.
+
+    Playwright's recorder writes a keyframe every few seconds at a much lower
+    quality than the frames around it, so once every five seconds the whole
+    picture softens for one frame and snaps back. On a screen of small text
+    that reads as a flicker. Those frames are found by their sharpness: a
+    single frame whose edge energy drops well below both neighbours' is not a
+    picture the page ever drew.
+    """
+    w, h = 800, 450
+    proc = subprocess.Popen(
+        ["ffmpeg", "-v", "error", "-i", str(video),
+         "-vf", f"scale={w}:{h}", "-pix_fmt", "gray", "-f", "rawvideo", "-"],
+        stdout=subprocess.PIPE,
+    )
+    assert proc.stdout is not None
+    import numpy as np
+
+    energy: list[float] = []
+    size = w * h
+    while True:
+        buf = proc.stdout.read(size)
+        if len(buf) < size:
+            break
+        frame = np.frombuffer(buf, dtype=np.uint8).reshape(h, w).astype(np.int16)
+        energy.append(float(np.abs(np.diff(frame, axis=1)).mean()))
+    proc.wait()
+    smeared = []
+    for i in range(1, len(energy) - 1):
+        before, here, after = energy[i - 1], energy[i], energy[i + 1]
+        if here < 0.9 * min(before, after) and abs(before - after) < 0.12 * max(before, after):
+            smeared.append(i)
+    # The encoder places its keyframes on a fixed cadence. Where the picture
+    # was moving, a smeared keyframe hides between two frames that differ
+    # anyway and the test above cannot see it, so once the cadence is known
+    # from the ones it did see, every frame on that cadence is replaced.
+    import math
+
+    period = 0
+    for n in smeared:
+        period = math.gcd(period, n)
+    if period >= 24 and len(smeared) >= 5:
+        smeared = list(range(period, len(energy) - 1, period))
+    return smeared
+
+
 def mux(video: pathlib.Path, audio: pathlib.Path, out: pathlib.Path, length: float) -> None:
     """Trim the capture to the walkthrough, lay the narration on it, encode."""
     start = find_start(video)
     available = probe_duration(video) - start
     span = min(length, available)
-    print(f"trimming {start:.2f}s of page load, keeping {span:.1f}s")
+    smeared = find_smeared_frames(video)
+    print(f"trimming {start:.2f}s of page load, keeping {span:.1f}s; "
+          f"{len(smeared)} smeared capture frames replaced by their predecessor")
+    # Each smeared frame is dropped and the fps filter fills the gap with the
+    # frame before it, so the clock does not move; frame numbers are counted
+    # on the untrimmed input, which is why the trim happens after.
+    drop = "+".join(f"eq(n,{n})" for n in smeared) or "0"
     run_ffmpeg([
         "ffmpeg", "-y", "-loglevel", "error",
-        "-ss", f"{start:.3f}", "-i", str(video),
+        "-i", str(video),
         "-i", str(audio),
         "-filter_complex",
-        f"[0:v]trim=0:{span:.3f},setpts=PTS-STARTPTS,"
+        f"[0:v]select='not({drop})',fps={FPS},"
+        f"trim=start={start:.3f}:end={start + span:.3f},setpts=PTS-STARTPTS,"
+        f"scale={FRAME[0]}:{FRAME[1]}:flags=lanczos,"
         f"fade=t=in:st=0:d=0.5,fade=t=out:st={max(span - 0.7, 0):.2f}:d=0.7[v];"
         f"[1:a]apad,atrim=0:{span:.3f},asetpts=PTS-STARTPTS,"
         f"afade=t=out:st={max(span - 0.7, 0):.2f}:d=0.7[a]",
         "-map", "[v]", "-map", "[a]",
-        "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         str(out),

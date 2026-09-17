@@ -11,6 +11,7 @@ __pycache__/
 .ruff_cache/
 demo_video/_raw/
 demo_video/_server.log
+demo_video/frames/
 demo_video/speech/
 demo_video/*.wav
 demo_video/*.mp4

@@ -449,19 +449,28 @@ footer { padding: 18px 28px 34px; font-size: 11.5px; color: var(--ink-faint); bo
   transition: left .42s cubic-bezier(.4,0,.2,1), top .42s cubic-bezier(.4,0,.2,1),
               width .42s cubic-bezier(.4,0,.2,1), height .42s cubic-bezier(.4,0,.2,1);
 }
+/* The label sits on its own plate so it never collides with a heading the
+   product drew underneath it; when there is no room above the ring it tucks
+   just inside the ring's top edge instead. */
 .demo-spot::after {
   content: attr(data-label);
-  position: absolute; left: 0; top: -23px;
+  position: absolute; left: -1px; top: -27px;
+  padding: 4px 9px 3px; border-radius: 6px;
+  background: rgba(7, 12, 14, .96); border: 1px solid var(--air);
   font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--air); white-space: nowrap;
+  color: var(--air); white-space: nowrap; line-height: 1.2;
 }
+.demo-spot.label-inside::after { top: 6px; left: auto; right: 6px; }
+.demo-spot.label-below::after { top: auto; bottom: -27px; }
+.demo-spot[data-label=""]::after { display: none; }
 
 .demo-cursor {
   position: absolute; left: 0; top: 0; width: 15px; height: 15px; margin: -7px 0 0 -7px;
   border-radius: 50%; background: rgba(84, 214, 194, .30);
-  border: 1.5px solid var(--air);
-  transition: transform .34s cubic-bezier(.4,0,.2,1);
+  border: 1.5px solid var(--air); opacity: 0;
+  transition: transform .34s cubic-bezier(.4,0,.2,1), opacity .25s ease;
 }
+.demo-cursor.on { opacity: 1; }
 
 .demo-progress {
   position: absolute; left: 0; right: 0; top: 0; height: 2px;
@@ -471,6 +480,8 @@ footer { padding: 18px 28px 34px; font-size: 11.5px; color: var(--ink-faint); bo
 
 .demo-press { outline: 2px solid var(--air) !important; outline-offset: 2px; }
 
-/* Room for the caption, and no scrollbar in the recording. */
+/* Room for the caption, the product's own toasts above it rather than under
+   it, and no scrollbar in the recording. */
 body.demo-running main { padding-bottom: 150px; }
+body.demo-running .toast { bottom: 150px; z-index: 70; }
 body.demo-running::-webkit-scrollbar { width: 0; height: 0; }

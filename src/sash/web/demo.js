@@ -55,7 +55,7 @@ const DEMO = (() => {
          + "household's own median. It moves when you air, and which window, and nothing "
          + "else.",
       seconds: 9,
-      run: async () => { await tab('now'); await spotlight('#demand-card', 'Why now'); },
+      run: async () => { await tab('now'); await spotlight('#demand-body', 'Why now'); },
     },
     {
       say: "Here is the measurement that makes it possible. Carbon monoxide has no "
@@ -93,14 +93,15 @@ const DEMO = (() => {
       seconds: 10,
       run: async () => {
         await tab('timeline');
-        await clickIt('#advance', 'Advance');
-        await sleep(400);
+        await clickIt('#advance', 'Advance 30 min');
+        await waitIdle(3500);
+        await spotlight('#view-timeline .card:nth-of-type(2)', 'Events, as delivered');
       },
     },
     {
       say: "The readings arrive, the model refits, and the plan moves with them.",
       seconds: 6,
-      run: async () => { await spotlight('#timeline', 'Live readings'); },
+      run: async () => { await spotlight('#view-timeline .card:nth-of-type(1)', 'Live readings'); },
     },
     {
       say: "A recommendation nobody writes down cannot be wrong later. So SASH publishes "
@@ -110,6 +111,7 @@ const DEMO = (() => {
         await tab('now');
         await clickIt('#publish', 'Publish this plan');
         await waitIdle(5000);
+        await spotlight('#decision .decision-actions', 'Written down first');
       },
     },
     {
@@ -133,10 +135,12 @@ const DEMO = (() => {
       run: async () => {
         // The advance the previous beat started has to land before the ledger
         // can show a settled plan, because settling happens when the ledger is
-        // read.
-        await waitIdle(7500);
+        // read. The ledger card is lit while it waits, and measured again once
+        // the scored row has landed and the card has grown.
         await tab('record');
-        await spotlight('#ledger-summary', 'This session, scored');
+        await spotlight('#view-record .card:nth-of-type(2)', 'This session, scored');
+        await waitIdle(7500);
+        await spotlight('#view-record .card:nth-of-type(2)', 'This session, scored');
       },
     },
     {
@@ -144,7 +148,7 @@ const DEMO = (() => {
          + "home's record and asked to price every airing in the last part before seeing "
          + "what it cost.",
       seconds: 11,
-      run: async () => { await spotlight('#backtest', 'Priced before it happened'); },
+      run: async () => { await spotlight('#view-record .card:nth-of-type(1)', 'Priced before it happened'); },
     },
     {
       say: "Across twenty-four simulated households it has never seen, SASH beat the "
@@ -152,14 +156,14 @@ const DEMO = (() => {
          + "whose windows are physically identical, it announced a difference on two, at "
          + "a nominal five per cent.",
       seconds: 15,
-      run: async () => { await spotlight('#verdict-card', 'What it is right about'); await tab('windows'); },
+      run: async () => { await tab('windows'); await spotlight('#verdict-card', 'What it is right about'); },
     },
     {
       say: "All of it from a camera it never looks through. The Ring client carries a "
          + "path allowlist, and the test suite walks every media endpoint against a server "
          + "that would have answered.",
       seconds: 12,
-      run: async () => { await tab('setup'); await spotlight('.privacy', 'What SASH never asks for'); },
+      run: async () => { await tab('setup'); await spotlight('#view-setup .card:nth-of-type(3)', 'What SASH never asks for'); },
     },
   ];
 
@@ -188,12 +192,49 @@ const DEMO = (() => {
     captionEl.parentElement.classList.add('demo-fade');
   }
 
+  /** The band of the viewport a viewer can actually see: below the sticky
+   * header and tabs, above the caption. Everything the walkthrough points at
+   * is scrolled into this band and the ring of light is clipped to it. */
+  function safeZone() {
+    const tabs = $('#tabs');
+    const cap = $('.demo-caption', layer);
+    const top = (tabs ? tabs.getBoundingClientRect().bottom : 0) + 8;
+    const bottom = (cap ? cap.getBoundingClientRect().top : window.innerHeight) - 12;
+    return { top, bottom };
+  }
+
+  /** Scroll only as far as it takes for `el` to sit inside the safe zone.
+   *
+   * A target that is already visible stays put, one just below the fold moves
+   * up by the minimum, and one taller than the band is aligned to the top of
+   * it. Re-centring the page on every beat reads as the screen lurching. */
+  async function reveal(el) {
+    const zone = safeZone();
+    const box = el.getBoundingClientRect();
+    let delta = 0;
+    if (box.height > zone.bottom - zone.top) delta = box.top - zone.top;
+    else if (box.top < zone.top) delta = box.top - zone.top;
+    else if (box.bottom > zone.bottom) delta = box.bottom - zone.bottom;
+    if (Math.abs(delta) < 4) return;
+    window.scrollBy({ top: delta, behavior: 'smooth' });
+    // Wait for the smooth scroll to settle rather than for a fixed time.
+    let last = -1, still = 0;
+    const until = performance.now() + 900;
+    while (performance.now() < until && still < 3) {
+      await sleep(40);
+      if (window.scrollY === last) still++; else { still = 0; last = window.scrollY; }
+    }
+  }
+
   async function tab(name) {
     const button = document.querySelector(`#tabs button[data-view="${name}"]`);
     if (button && !button.classList.contains('active')) {
+      // A new tab is a new picture; nothing from the old one may stay lit.
+      unspot();
       await moveCursorTo(button);
       button.click();
       await sleep(320);
+      hideCursor();
     }
   }
 
@@ -201,9 +242,17 @@ const DEMO = (() => {
     if (!el) return;
     const box = el.getBoundingClientRect();
     cursor.hidden = false;
+    void cursor.offsetWidth;
+    cursor.classList.add('on');
     cursor.style.transform =
       `translate(${box.left + box.width / 2}px, ${box.top + box.height / 2}px)`;
     await sleep(360);
+  }
+
+  /** The cursor exists to show a press. Between presses it is off screen, so
+   * it never sits on a number the narration is reading out. */
+  function hideCursor() {
+    cursor.classList.remove('on');
   }
 
   /** Wait until the page has finished refetching and refitting.
@@ -225,31 +274,54 @@ const DEMO = (() => {
     return false;
   }
 
+  /** Press a button the viewer can see being pressed: the ring of light goes
+   * on the button itself, the cursor arrives, the button flashes. */
   async function clickIt(selector, label) {
     const el = $(selector);
     if (!el || el.hidden || el.disabled) return;
+    await spotlight(selector, label, { pad: 6 });
     await moveCursorTo(el);
     el.classList.add('demo-press');
     el.click();
     await sleep(260);
     el.classList.remove('demo-press');
+    await sleep(300);
+    hideCursor();
   }
 
-  /** Put the ring of light on a real element, scrolling it into view first. */
-  async function spotlight(selector, label) {
+  function unspot() {
+    spot.hidden = true;
+    spot.classList.remove('label-inside', 'label-below');
+  }
+
+  /** Put the ring of light on a real element, scrolling it into view first.
+   *
+   * The ring is clipped to the safe zone, so a card taller than the screen is
+   * lit from its top edge down to the caption rather than spilling under the
+   * sticky header. The label sits on a plate above the ring, or just inside
+   * its top edge when there is no room above. */
+  async function spotlight(selector, label, { pad = 10 } = {}) {
     const el = $(selector);
-    if (!el) { spot.hidden = true; return; }
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    await sleep(420);
+    if (!el) { unspot(); return; }
+    hideCursor();
+    await reveal(el);
+    const zone = safeZone();
     const box = el.getBoundingClientRect();
-    const pad = 10;
+    const left = Math.max(6, box.left - pad);
+    const right = Math.min(window.innerWidth - 6, box.right + pad);
+    const top = Math.max(zone.top, box.top - pad);
+    const bottom = Math.min(zone.bottom, box.bottom + pad);
     spot.hidden = false;
-    spot.style.left = `${box.left - pad}px`;
-    spot.style.top = `${box.top - pad}px`;
-    spot.style.width = `${box.width + pad * 2}px`;
-    spot.style.height = `${box.height + pad * 2}px`;
+    spot.style.left = `${left}px`;
+    spot.style.top = `${top}px`;
+    spot.style.width = `${right - left}px`;
+    spot.style.height = `${Math.max(24, bottom - top)}px`;
     spot.dataset.label = label || '';
-    await moveCursorTo(el);
+    // No room above: below the ring if that is visible, otherwise inside it.
+    const above = top - 26 >= zone.top;
+    const below = !above && bottom + 30 <= zone.bottom;
+    spot.classList.toggle('label-below', below);
+    spot.classList.toggle('label-inside', !above && !below);
   }
 
   async function play() {
@@ -266,8 +338,8 @@ const DEMO = (() => {
       if (spent < seconds) await sleep((seconds - spent) * 1000);
       window.__SASH_BEAT = beatIndex + 1;
     }
-    spot.hidden = true;
-    cursor.hidden = true;
+    unspot();
+    hideCursor();
     caption('SASH. Street Air, Sensed at Home.');
     window.__SASH_DONE = true;
   }
