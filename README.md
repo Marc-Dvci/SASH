@@ -20,6 +20,8 @@ because the difference is invisible, it changes with the hour and the weather,
 and nobody has an instrument. SASH measures it, from the home's own record, and
 then plans around it.
 
+![The decision card: open the Courtyard window at 06:45 for 57 minutes, 388 against the habit's 597](docs/img/writeup/sash-2-decision.png)
+
 ---
 
 ## Run it
@@ -87,6 +89,8 @@ predicted intake, the comparison against what this household would have done
 anyway, and the share of paired bootstrap draws in which the plan really is
 cheaper. Under it, every plan that was considered and rejected.
 
+![Each window: air exchange from the CO channel, street coupling from PM2.5](docs/img/writeup/sash-3-windows.png)
+
 **Windows.** Per opening: air exchange rate, street coupling, both with
 intervals, and the evidence behind each. Above them, the verdict, which is
 sometimes **"these two openings are not yet distinguishable"**.
@@ -104,6 +108,8 @@ what SASH reads and what it never requests.
 ---
 
 ## How it works
+
+![Three Ring signals, two measurements per window, one plan](docs/img/writeup/sash-1-how.png)
 
 Three Ring streams and nothing else: vehicle-motion event **times** from a
 camera, contact transitions from the windows, and a four-channel Air Quality
@@ -135,6 +141,10 @@ identical, it announced a difference on 2 of them, at a nominal 5%.
 ---
 
 ## Evidence
+
+![14 of 15 comparisons named the truly cleaner window; 2 of 40 false claims on identical windows; 71 of 94 plans beat the habit; 7.1 % median error on air exchange](docs/img/writeup/sash-5-scorecard.png)
+
+![Where SASH called a comparison the true gap was 8.40; where it held back, 1.45](docs/img/writeup/sash-4-gate.png)
 
 `sash bench` simulates households SASH has never seen, hands it nothing but the
 streams a Ring account would deliver, and scores it against the simulator's own
