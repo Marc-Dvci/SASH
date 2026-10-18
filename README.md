@@ -79,7 +79,7 @@ Other commands:
 sash fit                        # print the fitted household model as JSON
 sash serve                      # serve an existing database
 sash bench --homes 24 --nulls 40 --days 120     # the benchmark below
-pytest                          # 150 tests
+pytest                          # 155 tests
 ```
 
 ---
@@ -222,7 +222,7 @@ simulator/       A Ring account: ground-truth physics, the documented endpoints,
                  and a replay through the real ingest path
 infra/           The SAM template and the table seeder
 bench/           The benchmark and its results
-tests/           150 tests, including Ring's own reference payloads verbatim
+tests/           155 tests, including Ring's own reference payloads verbatim
 docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK, AWS,
                  FRICTION_LOG, PRODUCT_FEEDBACK, DEMO_SCRIPT, JUDGE
 ```

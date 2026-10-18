@@ -194,9 +194,9 @@ def create_app(
     @app.get("/api/recommendation")
     async def api_recommendation(explore: bool = True) -> dict[str, Any]:
         rec = household.recommendation(explore=explore)
-        provider, model_id, region = narrative.provider_from_env()
+        provider, model_id, region, endpoint = narrative.provider_from_env()
         rec["narrative"] = narrative.narrate(
-            rec, provider=provider, model_id=model_id, region=region
+            rec, provider=provider, model_id=model_id, region=region, endpoint=endpoint
         )
         return rec
 

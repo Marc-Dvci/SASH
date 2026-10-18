@@ -72,7 +72,7 @@ motion is delivered by Ring and discarded at the door: 10,300 dropped against
 ## Four minutes: check the work
 
 ```bash
-pytest                                            # 150 tests
+pytest                                            # 155 tests
 sash bench --homes 24 --nulls 40 --days 120       # about 8 minutes
 ```
 

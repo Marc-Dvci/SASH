@@ -342,6 +342,30 @@ def _stamp(t: float) -> str:
     return dt.datetime.fromtimestamp(t, tz=dt.timezone.utc).strftime("%a %d %b %Y %H:%M UTC")
 
 
+def cmd_narrate(args: argparse.Namespace) -> int:
+    """Phrase a running SASH's current decision through Amazon Bedrock, once."""
+    import os
+    import urllib.request
+
+    from . import narrative
+
+    with urllib.request.urlopen(f"{args.url.rstrip('/')}/api/recommendation", timeout=60) as r:
+        rec = json.load(r)
+    _, model_id, region, endpoint = narrative.provider_from_env()
+    model_id = args.model or model_id
+    endpoint = args.endpoint if args.endpoint is not None else endpoint
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    for i in range(args.runs):
+        narrative._SPOKEN.clear()
+        t0 = time.perf_counter()
+        out = narrative.narrate(rec, provider="bedrock", model_id=model_id, region=region, endpoint=endpoint)
+        took = time.perf_counter() - t0
+        print(json.dumps({"run": i + 1, "seconds": round(took, 2), "source": out["source"],
+                          "text": out["text"], "fallback_reason": out.get("fallback_reason")}, indent=2))
+    print("\nDeterministic: " + narrative.narrate(rec)["text"])
+    return 0
+
+
 def cmd_bench(args: argparse.Namespace) -> int:
     from bench.run_benchmark import main as bench_main
 
@@ -391,6 +415,13 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("fit", help="print the fitted household model")
     p.set_defaults(func=cmd_fit)
+
+    p = sub.add_parser("narrate", help="phrase a running SASH's decision through Amazon Bedrock")
+    p.add_argument("--url", default="http://127.0.0.1:8000")
+    p.add_argument("--model", default="")
+    p.add_argument("--endpoint", default=None, help="the Bedrock API endpoint; empty uses Converse")
+    p.add_argument("--runs", type=int, default=3)
+    p.set_defaults(func=cmd_narrate)
 
     p = sub.add_parser("bench", help="score the estimator against ground truth")
     p.add_argument("--homes", type=int, default=24)

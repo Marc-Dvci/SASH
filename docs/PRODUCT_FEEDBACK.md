@@ -38,9 +38,10 @@ reference pages are the contract the simulator serves and the tests pin.
 Lambda, SQS, DynamoDB, EventBridge Scheduler, Secrets Manager with a KMS key,
 CloudWatch alarms, SNS. Four Lambda handlers and a DynamoDB storage adapter in
 `src/sash/aws/`, 19 tests against doubles, and the same sequence verified
-against the live stack. Amazon Bedrock phrases the decision card, once the
-stack's `BedrockModelId` is set, behind an
-interface whose default is a deterministic renderer (`src/sash/narrative.py`).
+against the live stack. Amazon Bedrock phrases the decision card behind an
+interface whose default is a deterministic renderer (`src/sash/narrative.py`):
+`openai.gpt-oss-120b` on the Bedrock API endpoint, run against the deployed
+stack's decision, 3 of 3 sentences accepted by the number guard, 2.0 to 2.5 s each.
 `docs/AWS.md`.
 
 **Everything else** is Python 3.10, FastAPI, httpx, numpy and pytest. No ML

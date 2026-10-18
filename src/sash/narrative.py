@@ -13,7 +13,12 @@ the network is down is not an adviser.
 
 The rule the adapter enforces, and the reason the fact dictionary exists: the
 model never invents a quantity. It is handed the numbers and asked only to join
-them up.
+them up, and :func:`numbers_supported` refuses any sentence carrying a number
+the facts do not hold.
+
+Two transports reach Bedrock: the runtime Converse API, and the Bedrock API
+endpoint (``BEDROCK_ENDPOINT``, OpenAI-compatible chat completions with a
+short-term bearer token minted from the caller's AWS credentials).
 """
 
 from __future__ import annotations
@@ -21,6 +26,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
+import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
@@ -147,10 +154,11 @@ class BedrockNarrator:
     the response says which one spoke.
     """
 
-    def __init__(self, model_id: str, region: str, timeout_s: float = 20.0):
+    def __init__(self, model_id: str, region: str, timeout_s: float = 20.0, endpoint: str = ""):
         self.model_id = model_id
         self.region = region
         self.timeout_s = timeout_s
+        self.endpoint = endpoint.rstrip("/")
         self._client = None
 
     def _connect(self):
@@ -170,6 +178,8 @@ class BedrockNarrator:
         return self._client
 
     def speak(self, facts: Facts) -> str:
+        if self.endpoint:
+            return self._speak_endpoint(facts)
         client = self._connect()
         response = client.converse(
             modelId=self.model_id,
@@ -187,6 +197,52 @@ class BedrockNarrator:
         blocks = response["output"]["message"]["content"]
         return next((b["text"] for b in blocks if b.get("text")), "").strip()
 
+    def _speak_endpoint(self, facts: Facts) -> str:
+        from aws_bedrock_token_generator import provide_token
+
+        body = {
+            "model": self.model_id,
+            # A reasoning model spends part of the budget thinking first; too
+            # small a budget returns an empty answer.
+            "max_tokens": 1200,
+            "messages": [
+                {"role": "system", "content": BEDROCK_SYSTEM},
+                {"role": "user", "content": json.dumps(facts.as_dict(), indent=2)},
+            ],
+        }
+        if self.model_id.startswith("openai.gpt-oss"):
+            body["reasoning_effort"] = "low"
+        request = urllib.request.Request(
+            f"{self.endpoint}/v1/chat/completions",
+            data=json.dumps(body).encode(),
+            headers={
+                "content-type": "application/json",
+                "authorization": f"Bearer {provide_token(region=self.region)}",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+            answer = json.load(response)
+        text = answer["choices"][0]["message"].get("content") or ""
+        # Some reasoning models inline their reasoning before the answer.
+        return re.sub(r"<reasoning>.*?</reasoning>", "", text, flags=re.S).strip()
+
+
+def _numbers(text: str) -> set[float]:
+    return {float(n) for n in re.findall(r"\d+(?:\.\d+)?", text)}
+
+
+def numbers_supported(text: str, facts: Facts) -> bool:
+    """True when every number in ``text`` is one the facts hold.
+
+    Clock times count as their hour and minute, and a share of paired draws may
+    be written as a percentage.
+    """
+    allowed = _numbers(json.dumps(facts.as_dict()))
+    if facts.p_better is not None:
+        allowed.add(float(round(facts.p_better * 100)))
+    return _numbers(text) <= allowed
+
 
 #: The wording for a decision already phrased, so a page refresh on the same
 #: decision reads the same sentence and costs no second call.
@@ -200,6 +256,7 @@ def narrate(
     model_id: str = "",
     region: str = "eu-west-1",
     tz_offset_h: float = 0.0,
+    endpoint: str = "",
 ) -> dict[str, Any]:
     """Return ``{text, source, facts}``.
 
@@ -222,9 +279,11 @@ def narrate(
     if key in _SPOKEN:
         return {"text": _SPOKEN[key], "source": f"bedrock:{model_id}", "facts": facts.as_dict()}
     try:
-        text = BedrockNarrator(model_id, region).speak(facts)
+        text = BedrockNarrator(model_id, region, endpoint=endpoint).speak(facts)
         if not text:
             raise ValueError("empty completion")
+        if not numbers_supported(text, facts):
+            raise ValueError(f"a number the facts do not hold: {text[:120]}")
         _SPOKEN[key] = text
         return {"text": text, "source": f"bedrock:{model_id}", "facts": facts.as_dict()}
     except Exception as exc:  # noqa: BLE001 - any failure falls back, by design
@@ -236,9 +295,10 @@ def narrate(
         }
 
 
-def provider_from_env() -> tuple[str, str, str]:
+def provider_from_env() -> tuple[str, str, str, str]:
     return (
         os.environ.get("SASH_NARRATIVE_PROVIDER", "deterministic"),
         os.environ.get("BEDROCK_MODEL_ID", ""),
         os.environ.get("AWS_REGION", "eu-west-1"),
+        os.environ.get("BEDROCK_ENDPOINT", ""),
     )

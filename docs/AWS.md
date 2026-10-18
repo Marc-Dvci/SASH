@@ -109,13 +109,34 @@ laptop.
 deterministic phrase renderer: the same model state produces the same words, so
 a screenshot can be checked against the numbers behind it. Setting
 `BedrockModelId` on the stack switches the wording of the decision card to
-Bedrock through the Converse API.
+Bedrock, through the Converse API or through the Bedrock API endpoint
+(`BEDROCK_ENDPOINT`, OpenAI-compatible chat completions with a short-term bearer
+token minted from the caller's AWS credentials).
+
+`sash narrate` phrases a running SASH's current decision through Bedrock. Run
+against the deployed stack with `openai.gpt-oss-120b` on the Bedrock API
+endpoint, three runs gave three sentences, each in 2.0 to 2.5 s, and all three
+passed the number guard:
+
+```bash
+AWS_PROFILE=<profile> AWS_REGION=us-east-1 sash narrate     --url https://i1jcuqoto7.execute-api.us-east-1.amazonaws.com/dev     --model openai.gpt-oss-120b --endpoint https://bedrock-mantle.us-east-1.api.aws
+```
+
+> Opening the courtyard window at 06:45 for 57 minutes is predicted to provide an
+> intake of 388 µg min⁻¹ m⁻³, compared with the usual 597 µg min⁻¹ m⁻³ when the
+> street window is opened, representing a 35 % saving and covering about 0.9 of
+> the 3.2 air changes the home normally achieves in half a day; 97 % of paired
+> draws are cheaper.
+
+**The number guard.** `numbers_supported` refuses any sentence carrying a number
+the fact dictionary does not hold, and the deterministic sentence ships instead
+(`tests/test_narrative_guard.py`).
 
 The model is handed a **fact dictionary** and nothing else: the opening's name, a
 start time, a duration, two forecast numbers, a percentage, and the reasons
 airing is due. It is never sent readings, event times or contact history, and it
-is never asked what to recommend. If it fails or is slow, the deterministic text
-ships. **The numbers on screen are identical either way**: a number a language
+is never asked what to recommend. If it fails, is slow, or writes a number the
+facts do not hold, the deterministic text ships. **The numbers on screen are identical either way**: a number a language
 model produced is not a measurement.
 
 ---
