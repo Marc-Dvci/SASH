@@ -20,9 +20,22 @@ because the difference is invisible, it changes with the hour and the weather,
 and nobody has an instrument. SASH measures it, from the home's own record, and
 then plans around it.
 
+I live in a flat in Strasbourg with one window on a street with traffic and one
+on a quieter side, and I have never known which one to open. SASH is the
+instrument that answers that.
+
 ![The decision card: open the Courtyard window at 06:45 for 57 minutes, 388 against the habit's 597](docs/img/writeup/sash-2-decision.png)
 
 **Demo video:** <https://youtu.be/ypKJ2x0LNcw>
+
+## For judges
+
+| Criterion | Where to look |
+|---|---|
+| Tech implementation | The Ring client, webhooks and OAuth in `src/sash/ring/`, pinned to Ring's reference payloads by `tests/test_ring_contract.py`; the SAM stack in `infra/template.yaml`, live at <https://i1jcuqoto7.execute-api.us-east-1.amazonaws.com/dev/>; Amazon Bedrock behind a number guard (`docs/AWS.md`) |
+| Design | The screens in [What it does](#what-it-does-in-four-screens), live on AWS; every plan published before the airing and scored after it |
+| Potential impact | A non-security use of Ring hardware a household already owns; [Evidence](#evidence): 71 of 94 plans beat the household's habit |
+| Quality of the idea | Carbon monoxide from cooking as a tracer gas ([How it works](#how-it-works)); a permutation test before SASH names a better window |
 
 ---
 
