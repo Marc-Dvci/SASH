@@ -51,11 +51,15 @@ def beats() -> list[dict]:
     source = (ROOT / "src" / "sash" / "web" / "demo.js").read_text(encoding="utf-8")
     import re
 
+    # The second part's beats come after this marker; record.py films them on
+    # the nine-day household.
+    early_at = source.find("const EARLY_BEATS")
     out = []
     for match in re.finditer(r"say:\s*((?:\"[^\"]*\"\s*\+?\s*)+),\s*\n\s*seconds:\s*([\d.]+)",
                              source):
         text = "".join(re.findall(r'"([^"]*)"', match.group(1)))
-        out.append({"say": text.strip(), "seconds": float(match.group(2))})
+        part = "early" if 0 <= early_at < match.start() else "main"
+        out.append({"say": text.strip(), "seconds": float(match.group(2)), "part": part})
     if not out:
         raise SystemExit("no beats found in web/demo.js")
     return out
@@ -136,8 +140,8 @@ def main() -> int:
         out.writeframes(b"".join(frames))
 
     (HERE / "timing.json").write_text(
-        json.dumps({"lead": LEAD_SILENCE, "beats": timings, "total": round(total, 3)},
-                   indent=1),
+        json.dumps({"lead": LEAD_SILENCE, "beats": timings, "parts": parts_of(plan),
+                    "total": round(total, 3)}, indent=1),
         encoding="utf-8",
     )
 
@@ -151,6 +155,12 @@ def main() -> int:
 
     print(f"wrote {master.name}, timing.json, demo_subtitles.srt")
     return 0
+
+
+def parts_of(plan: list[dict]) -> list[int]:
+    """How many beats each recorded part has, in order."""
+    main = sum(1 for b in plan if b["part"] == "main")
+    return [main, len(plan) - main] if main < len(plan) else [main]
 
 
 def _stamp(seconds: float) -> str:

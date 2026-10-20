@@ -24,45 +24,41 @@ const DEMO = (() => {
    * edit pass. `run` does the clicking. */
   const BEATS = [
     {
-      say: "Two windows in the same room can differ by a factor of five in how much "
-         + "street pollution they let in. Nobody can tell which is which. SASH measures it, "
-         + "from three Ring devices, without ever looking at an image.",
-      seconds: 12,
+      say: "Two windows in the same room can differ by a factor of five in how much street"
+         + " pollution they let in. Nobody can tell which is which. SASH measures it, from"
+         + " three Ring devices, without ever looking at an image.",
+      seconds: 15,
       run: async () => { await tab('now'); await spotlight('.brand', 'SASH'); },
     },
     {
-      say: "This is a real decision, taken now, for a flat with three openings. "
-         + "Open the courtyard window, at this time, for this long.",
+      say: "This is a real decision, for a flat with three openings. Open the courtyard "
+         + "window, at this time, for this long.",
       seconds: 8,
       run: async () => { await spotlight('#decision .headline', 'The decision'); },
     },
     {
-      say: "It is compared against what this household actually does. The street window "
-         + "it usually reaches for would admit about half as much again, for the same "
-         + "amount of air.",
-      seconds: 10,
+      say: "The street window this household usually reaches for would admit about half as"
+         + " much again, for the same amount of air.",
+      seconds: 8,
       run: async () => { await spotlight('#decision .intake', 'Against the habit'); },
     },
     {
-      say: "And SASH says how sure it is. Both plans are forecast together on each "
-         + "bootstrap draw, so they share the same weather and the same day, and what is "
-         + "left is the difference between the two windows.",
-      seconds: 11,
+      say: "And SASH says how sure it is. Both plans share the same draws, so what is left"
+         + " is the difference between the two windows.",
+      seconds: 9,
       run: async () => { await spotlight('#decision .confidence', 'How sure'); },
     },
     {
-      say: "SASH never changes how much air the home gets. The target is this "
-         + "household's own median. It moves when you air, and which window, and nothing "
-         + "else.",
-      seconds: 9,
+      say: "SASH never changes how much air the home gets. Only when, and through which "
+         + "window.",
+      seconds: 6,
       run: async () => { await tab('now'); await spotlight('#demand-body', 'Why now'); },
     },
     {
-      say: "Here is the measurement that makes it possible. Carbon monoxide has no "
-         + "street in it. Between cooking events it is a decaying tracer, so regressing "
-         + "its decay rate on how open each window was gives that window's air exchange "
-         + "rate directly.",
-      seconds: 14,
+      say: "Carbon monoxide has no street in it. Between cooking events it decays like a "
+         + "tracer gas, and how fast it decays with each window open gives that window's "
+         + "air exchange rate.",
+      seconds: 12,
       run: async () => {
         await tab('windows');
         await spotlight('#openings .opening-card:nth-child(2) .stat:nth-of-type(1)',
@@ -70,9 +66,9 @@ const DEMO = (() => {
       },
     },
     {
-      say: "That is tracer gas decay, which normally needs a technician and a cylinder of "
-         + "gas. This household makes the tracer twice a day by cooking, and Ring already "
-         + "measures it.",
+      say: "Tracer gas decay normally needs a technician and a cylinder of gas. This "
+         + "household makes the tracer twice a day by cooking, and Ring already measures "
+         + "it.",
       seconds: 10,
       run: async () => {
         await spotlight('#openings .opening-card:nth-child(2) .stat:nth-of-type(2)',
@@ -80,17 +76,16 @@ const DEMO = (() => {
       },
     },
     {
-      say: "And SASH refuses to over-claim. Every airing is held as it happened and only "
-         + "the label is shuffled. The courtyard window survives that. The balcony door "
-         + "does not, so SASH says these two are not yet distinguishable.",
+      say: "And SASH refuses to overclaim. Shuffle which window each airing went through, "
+         + "and the courtyard window still wins. The balcony door does not, so SASH says "
+         + "these two are not yet distinguishable.",
       seconds: 12,
       run: async () => { await spotlight('#verdict-card', 'The permutation gate'); },
     },
     {
-      say: "Now watch the events arrive. Every one is a signed webhook through the "
-         + "shipping receiver, and every reading is fetched by the same client that "
-         + "reads a Ring account.",
-      seconds: 10,
+      say: "Now watch the events arrive. Signed webhooks through the shipping receiver, "
+         + "and readings through the same client that reads a Ring account.",
+      seconds: 8,
       run: async () => {
         await tab('timeline');
         await clickIt('#advance', 'Advance 30 min');
@@ -99,39 +94,39 @@ const DEMO = (() => {
       },
     },
     {
-      say: "The readings arrive, the model refits, and the plan moves with them.",
-      seconds: 6,
-      run: async () => { await spotlight('#view-timeline .card:nth-of-type(1)', 'Live readings'); },
-    },
-    {
       say: "A recommendation nobody writes down cannot be wrong later. So SASH publishes "
-         + "the plan, with its forecast and its interval, before the airing happens.",
-      seconds: 10,
+         + "the plan and its forecast before the airing happens.",
+      seconds: 8,
       run: async () => {
         await tab('now');
+        // The Advance pressed a beat ago refits the household; Publish is
+        // disabled until it has, and a disabled button is not pressed.
+        await waitIdle(9000);
         await clickIt('#publish', 'Publish this plan');
         await waitIdle(5000);
         await spotlight('#decision .decision-actions', 'Written down first');
       },
     },
     {
-      say: "The household opens it. The flat is re-integrated with that window open, on "
-         + "the weather and the street that were already drawn, so the readings afterwards "
-         + "are what it would really have measured.",
-      seconds: 11,
+      say: "The household opens it, and the flat is simulated again with that window open.",
+      seconds: 5,
       run: async () => {
         await clickIt('#follow', 'The household follows it');
         await waitIdle(8000);
         // Four hours, because a plan cannot be scored until its window and the
-        // ninety minutes of recovery after it have both gone past. The click
-        // returns immediately; the next beat waits for the work.
+        // ninety minutes of recovery after it have both gone past. The beat
+        // waits for the work to land, so the next one opens on a scored plan;
+        // the recorder gives this beat a hold for the wait and cuts it out.
         await clickIt('#advance-long', 'Advance 4 h');
+        window.__SASH_MARKS = { advanced: (Date.now() - window.__SASH_T0) / 1000 };
+        await waitIdle(60000);
+        window.__SASH_MARKS.landed = (Date.now() - window.__SASH_T0) / 1000;
       },
     },
     {
-      say: "And it gets scored against the readings that followed. SASH takes the "
-         + "credit and the blame only for airings it proposed and that actually happened.",
-      seconds: 10,
+      say: "Then the plan is scored against the readings that followed. SASH answers only "
+         + "for airings it proposed and that actually happened.",
+      seconds: 8,
       run: async () => {
         // The advance the previous beat started has to land before the ledger
         // can show a settled plan, because settling happens when the ledger is
@@ -139,30 +134,53 @@ const DEMO = (() => {
         // the scored row has landed and the card has grown.
         await tab('record');
         await spotlight('#view-record .card:nth-of-type(2)', 'This session, scored');
-        await waitIdle(7500);
+        await waitIdle(11000);
         await spotlight('#view-record .card:nth-of-type(2)', 'This session, scored');
       },
     },
     {
-      say: "Above it, the harder version. The model is fitted on the first part of this "
-         + "home's record and asked to price every airing in the last part before seeing "
-         + "what it cost.",
-      seconds: 11,
+      say: "Harder still: fitted on the first part of the record, SASH prices every airing"
+         + " in the last part before seeing its cost.",
+      seconds: 8,
       run: async () => { await spotlight('#view-record .card:nth-of-type(1)', 'Priced before it happened'); },
     },
     {
-      say: "Across twenty-four simulated households it has never seen, SASH beat the "
-         + "household's own habit on seventy-one of ninety-four airings. On forty homes "
-         + "whose windows are physically identical, it announced a difference on two, at "
-         + "a nominal five per cent.",
+      say: "Across twenty-four simulated households it had never seen, SASH beat their own"
+         + " habit on sixty-nine of eighty-eight airings, with a median saving of "
+         + "forty-six per cent. On forty homes with identical windows, it claimed a "
+         + "difference on two.",
       seconds: 15,
       run: async () => { await tab('windows'); await spotlight('#verdict-card', 'What it is right about'); },
     },
+  ];
+
+  /* The second part runs on a different household: one that linked its account
+   * nine days ago and has just cooked, at /?demo=early on a server started with
+   * "sash demo --days 9". Nothing is measured yet, and the reason to air is
+   * inside the flat. */
+  const EARLY_BEATS = [
     {
-      say: "All of it from a camera it never looks through. The Ring client carries a "
-         + "path allowlist, and the test suite walks every media endpoint against a server "
-         + "that would have answered.",
-      seconds: 12,
+      say: "Street air is not always the point. Nine days after linking, this household "
+         + "has just cooked. When the reason to open a window is inside the flat, SASH "
+         + "stops optimising for the street, and only picks the window.",
+      seconds: 15,
+      run: async () => { await tab('now'); await spotlight('#decision', 'Nine days in, just after cooking'); },
+    },
+    {
+      say: "It picks one it has not measured yet, because the fumes fading through it are "
+         + "the measurement.",
+      seconds: 7,
+      run: async () => { await spotlight('#decision p:last-of-type', 'The fumes are the measurement'); },
+    },
+    {
+      say: "Each window shows its progress. Guided like this, simulated homes had every "
+         + "window measured in a median of eleven days, instead of forty.",
+      seconds: 9,
+      run: async () => { await spotlight('#calibration-card', 'Getting to know your windows'); },
+    },
+    {
+      say: "All of it from a camera it never looks through.",
+      seconds: 4,
       run: async () => { await tab('setup'); await spotlight('#view-setup .card:nth-of-type(3)', 'What SASH never asks for'); },
     },
   ];
@@ -324,35 +342,56 @@ const DEMO = (() => {
     spot.classList.toggle('label-inside', !above && !below);
   }
 
-  async function play() {
+  /** Play one part of the walkthrough. `main` is the 120-day household and
+   * `early` the household nine days in; the recorder films each against its own
+   * server and joins them, so the progress bar counts across both. */
+  async function play(part = 'main') {
+    // Wall-clock start, read back by the recorder to cut the page load off.
+    window.__SASH_T0 = Date.now();
     mount();
+    const beats = part === 'early' ? EARLY_BEATS : BEATS;
+    const offset = part === 'early' ? BEATS.length : 0;
+    const total = BEATS.length + EARLY_BEATS.length;
     const timing = window.__SASH_TIMING || null;
-    for (beatIndex = 0; beatIndex < BEATS.length; beatIndex++) {
-      const beat = BEATS[beatIndex];
+    // Every beat is due at a fixed offset from the first, the way its sentence
+    // is in the narration. A beat that overruns (a click waiting on the
+    // product) is absorbed by the next one rather than pushing every later
+    // beat behind the voice.
+    const clock = performance.now();
+    let due = 0;
+    for (beatIndex = 0; beatIndex < beats.length; beatIndex++) {
+      const beat = beats[beatIndex];
       const seconds = timing ? (timing[beatIndex] || beat.seconds) : beat.seconds;
-      const started = performance.now();
+      const ahead = clock + due * 1000 - performance.now();
+      if (ahead > 0) await sleep(ahead);
+      due += seconds;
       caption(beat.say);
-      progress.style.width = `${((beatIndex + 1) / BEATS.length) * 100}%`;
+      progress.style.width = `${((offset + beatIndex + 1) / total) * 100}%`;
       try { await beat.run(); } catch (e) { console.error('beat', beatIndex, e); }
-      const spent = (performance.now() - started) / 1000;
-      if (spent < seconds) await sleep((seconds - spent) * 1000);
       window.__SASH_BEAT = beatIndex + 1;
     }
+    const rest = clock + due * 1000 - performance.now();
+    if (rest > 0) await sleep(rest);
     unspot();
     hideCursor();
-    caption('SASH. Street Air, Sensed at Home.');
+    // A recorded first part cuts straight to the second, so only the last part
+    // (or a live viewing) ends on the title.
+    if (part !== 'main' || !window.__SASH_TIMING) caption('SASH. Street Air, Sensed at Home.');
     window.__SASH_DONE = true;
   }
 
-  return { play, beats: () => BEATS.map(b => ({ say: b.say, seconds: b.seconds })) };
+  const list = bs => bs.map(b => ({ say: b.say, seconds: b.seconds }));
+  return { play, beats: () => list(BEATS), earlyBeats: () => list(EARLY_BEATS) };
 })();
 
 window.SashDemo = DEMO;
 
-/* Auto-play at /?demo=1, once the first refresh has painted real numbers. */
+/* Auto-play at /?demo=1, or /?demo=early for the second part, once the first
+ * refresh has painted real numbers. */
 if (new URLSearchParams(location.search).has('demo')) {
+  const part = new URLSearchParams(location.search).get('demo') === 'early' ? 'early' : 'main';
   const start = () => {
-    if (document.querySelector('#decision .headline')) DEMO.play();
+    if (document.querySelector('#decision .headline')) DEMO.play(part);
     else setTimeout(start, 250);
   };
   setTimeout(start, 700);

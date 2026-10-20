@@ -6,13 +6,17 @@ database. The beat durations from ``narrate.py`` are injected as
 ``window.__SASH_TIMING`` before the page scripts run, so the spotlight and the
 voice share one clock.
 
+The walkthrough has two parts, filmed one after the other and joined: the
+120-day household, then a household nine days after linking (``/?demo=early``
+on ``sash demo --days 9``), run forward through its own tape to the moment it
+has just cooked.
+
 Nothing on screen is added afterwards. Every caption, every cursor move and every
 number is rendered by the product, and the buttons the walkthrough presses are
 the buttons a person presses.
 
     python demo_video/narrate.py     # first: voice + timing.json
     python demo_video/record.py      # then: this
-    python demo_video/record.py http://127.0.0.1:8000/     # against a server you started
 """
 
 from __future__ import annotations
@@ -41,6 +45,14 @@ FRAME = (1920, 1080)
 FPS = 25
 TAIL_SECONDS = 2.6
 OUT = HERE / "sash-demo.mp4"
+#: Beats that wait on the product for longer than their sentence, by index
+#: across both parts. The page gets the extra seconds and the film loses them
+#: again: beat 11 presses Advance 4 h and holds until it lands, so beat 12 opens
+#: on a scored plan however busy the machine is. The cut ends CUT_BEFORE
+#: seconds before the beat's narrated end, so the viewer sees the button
+#: pressed, then the landed page, then the next beat.
+HOLDS = {10: 40.0}
+CUT_BEFORE = 0.8
 
 
 def free_port() -> int:
@@ -49,15 +61,24 @@ def free_port() -> int:
         return int(s.getsockname()[1])
 
 
-def start_server(port: int, db: str) -> subprocess.Popen:
+#: The two parts: query string, database, and the extra ``sash demo`` arguments.
+#: The second household is reseeded on every run, because recording it moves
+#: its tape forward.
+PARTS = (
+    ("1", "demo.sqlite", []),
+    ("early", "demo_early.sqlite", ["--days", "9", "--live-minutes", "1440", "--reseed"]),
+)
+
+
+def start_server(port: int, db: str, extra: list[str] | None = None) -> subprocess.Popen:
     """The real product, on the real seeded tape."""
     command = [
         sys.executable,
         "-c",
         "import sys; sys.path.insert(0, r'{root}'); sys.path.insert(0, r'{src}');"
         "from sash.cli import main;"
-        "main(['--db', r'{db}', 'demo', '--port', '{port}'])".format(
-            root=ROOT, src=ROOT / "src", db=db, port=port
+        "main(['--db', r'{db}', 'demo', '--port', '{port}'] + {extra!r})".format(
+            root=ROOT, src=ROOT / "src", db=db, port=port, extra=list(extra or [])
         ),
     ]
     # The server's output goes to a file, never to a pipe. Seeding prints a
@@ -84,6 +105,29 @@ def start_server(port: int, db: str) -> subprocess.Popen:
     raise RuntimeError("the server did not come up")
 
 
+def run_to_after_cooking(url: str, *, step_min: float = 30.0, tries: int = 48) -> float:
+    """Advance the household's own tape until SASH asks for a calibration airing.
+
+    That is the moment the second part is about: the household has just cooked,
+    the reason to air is inside the flat, and a window is still unmeasured. It
+    is found by asking the product, half an hour at a time, through the same
+    Advance the page offers.
+    """
+    import urllib.request
+
+    for k in range(tries + 1):
+        with urllib.request.urlopen(url + "api/recommendation", timeout=120) as r:
+            rec = json.loads(r.read())
+        best = rec.get("best") or {}
+        if rec.get("mode") == "clear_now" and best.get("exploration"):
+            return k * step_min
+        request = urllib.request.Request(
+            url + f"api/demo/advance?minutes={step_min:g}", method="POST"
+        )
+        urllib.request.urlopen(request, timeout=300).read()
+    raise RuntimeError("no calibration airing within the tape")
+
+
 def probe_duration(path: pathlib.Path) -> float:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -101,15 +145,16 @@ def run_ffmpeg(command: list[str]) -> None:
         )
 
 
-def record(url: str, timing: dict) -> pathlib.Path:
+def record(
+    url: str, query: str, beats: list[float], lead: float, span: float
+) -> tuple[pathlib.Path, float | None, dict]:
     from playwright.sync_api import sync_playwright
 
-    raw_dir = HERE / "_raw"
+    raw_dir = HERE / "_raw" / query
     if raw_dir.exists():
         shutil.rmtree(raw_dir)
     raw_dir.mkdir(parents=True)
 
-    span = timing["total"] + TAIL_SECONDS
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             headless=True, args=["--force-color-profile=srgb", "--hide-scrollbars"]
@@ -121,16 +166,19 @@ def record(url: str, timing: dict) -> pathlib.Path:
             record_video_size={"width": VIEWPORT[0], "height": VIEWPORT[1]},
         )
         page = context.new_page()
+        # The capture starts with the page; the walkthrough stamps its own
+        # start, and the difference is the page load to cut.
+        opened = time.time()
         # Injected before any page script, so the walkthrough is paced to the
         # voice from its very first beat rather than catching up to it.
         page.add_init_script(
             "window.__SASH_TIMING = "
-            + json.dumps(timing["beats"])
+            + json.dumps(beats)
             + "; window.__SASH_LEAD = "
-            + json.dumps(timing["lead"])
+            + json.dumps(lead)
             + ";"
         )
-        page.goto(url + "?demo=1", wait_until="networkidle", timeout=120_000)
+        page.goto(url + "?demo=" + query, wait_until="networkidle", timeout=120_000)
         started = time.time()
         # Wait for the walkthrough to finish, but never past its own budget.
         while time.time() - started < span:
@@ -138,11 +186,14 @@ def record(url: str, timing: dict) -> pathlib.Path:
                 break
             page.wait_for_timeout(400)
         page.wait_for_timeout(int(TAIL_SECONDS * 1000))
+        stamp = page.evaluate("() => window.__SASH_T0 || null")
+        began = (stamp / 1000.0 - opened) if stamp else None
+        marks = page.evaluate("() => window.__SASH_MARKS || {}")
         video = page.video
         context.close()
         browser.close()
         source = pathlib.Path(video.path())
-    return source
+    return source, began, marks
 
 
 def find_start(video: pathlib.Path, *, look: float = 40.0) -> float:
@@ -228,29 +279,62 @@ def find_smeared_frames(video: pathlib.Path) -> list[int]:
     return smeared
 
 
-def mux(video: pathlib.Path, audio: pathlib.Path, out: pathlib.Path, length: float) -> None:
-    """Trim the capture to the walkthrough, lay the narration on it, encode."""
-    start = find_start(video)
-    available = probe_duration(video) - start
-    span = min(length, available)
-    smeared = find_smeared_frames(video)
-    print(f"trimming {start:.2f}s of page load, keeping {span:.1f}s; "
-          f"{len(smeared)} smeared capture frames replaced by their predecessor")
-    # Each smeared frame is dropped and the fps filter fills the gap with the
-    # frame before it, so the clock does not move; frame numbers are counted
-    # on the untrimmed input, which is why the trim happens after.
-    drop = "+".join(f"eq(n,{n})" for n in smeared) or "0"
+Clip = tuple[pathlib.Path, float, "float | None", list[tuple[float, float]]]
+
+
+def mux(clips: list[Clip], audio: pathlib.Path, out: pathlib.Path) -> None:
+    """Trim each capture to its part, cut its holds, join them, lay the narration on, encode.
+
+    Each clip starts where its walkthrough said it began; the scrim detector is
+    the fallback for a capture without that stamp. A walkthrough whose first
+    beat lights a whole card barely darkens the page, and the detector then
+    finds the second beat instead.
+    """
+    inputs: list[str] = []
+    chains: list[str] = []
+    length = 0.0
+    last = len(clips) - 1
+    for i, (video, wanted, began, cuts) in enumerate(clips):
+        start = max(0.0, began - 0.25) if began is not None else find_start(video)
+        kept = min(wanted, probe_duration(video) - start)
+        # Holds are timed from the walkthrough's start, which is 0.25 s into
+        # the trimmed clip.
+        held = "".join(
+            f"select='not(between(t,{at + 0.25:.3f},{at + 0.25 + hold:.3f}))',"
+            f"setpts=N/{FPS}/TB,"
+            for at, hold in cuts
+        )
+        span = kept - sum(hold for _, hold in cuts)
+        smeared = find_smeared_frames(video)
+        print(f"part {i + 1}: trimming {start:.2f}s of page load, keeping {span:.1f}s; "
+              f"{len(smeared)} smeared capture frames replaced by their predecessor")
+        # Each smeared frame is dropped and the fps filter fills the gap with
+        # the frame before it, so the clock does not move; frame numbers are
+        # counted on the untrimmed input, which is why the trim happens after.
+        drop = "+".join(f"eq(n,{n})" for n in smeared) or "0"
+        fade_in = 0.5 if i == 0 else 0.3
+        fade_out = 0.7 if i == last else 0.3
+        inputs += ["-i", str(video)]
+        chains.append(
+            f"[{i}:v]select='not({drop})',fps={FPS},"
+            f"trim=start={start:.3f}:end={start + kept:.3f},setpts=PTS-STARTPTS,"
+            f"{held}"
+            f"scale={FRAME[0]}:{FRAME[1]}:flags=lanczos,"
+            f"fade=t=in:st=0:d={fade_in},"
+            f"fade=t=out:st={max(span - fade_out, 0):.2f}:d={fade_out}[v{i}]"
+        )
+        length += span
+    joined = "".join(f"[v{i}]" for i in range(len(clips)))
+    a = len(clips)
     run_ffmpeg([
         "ffmpeg", "-y", "-loglevel", "error",
-        "-i", str(video),
+        *inputs,
         "-i", str(audio),
         "-filter_complex",
-        f"[0:v]select='not({drop})',fps={FPS},"
-        f"trim=start={start:.3f}:end={start + span:.3f},setpts=PTS-STARTPTS,"
-        f"scale={FRAME[0]}:{FRAME[1]}:flags=lanczos,"
-        f"fade=t=in:st=0:d=0.5,fade=t=out:st={max(span - 0.7, 0):.2f}:d=0.7[v];"
-        f"[1:a]apad,atrim=0:{span:.3f},asetpts=PTS-STARTPTS,"
-        f"afade=t=out:st={max(span - 0.7, 0):.2f}:d=0.7[a]",
+        ";".join(chains)
+        + f";{joined}concat=n={len(clips)}:v=1:a=0[v];"
+        f"[{a}:a]apad,atrim=0:{length:.3f},asetpts=PTS-STARTPTS,"
+        f"afade=t=out:st={max(length - 0.7, 0):.2f}:d=0.7[a]",
         "-map", "[v]", "-map", "[a]",
         "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
@@ -267,29 +351,51 @@ def main() -> int:
         return 1
     timing = json.loads(timing_path.read_text(encoding="utf-8"))
 
-    argument = sys.argv[1] if len(sys.argv) > 1 else "local"
-    server = None
-    if argument == "local":
+    counts = timing.get("parts") or [len(timing["beats"])]
+    clips: list[Clip] = []
+    first = 0
+    for n, (query, db_name, extra) in enumerate(PARTS[: len(counts)]):
+        spoken = timing["beats"][first : first + counts[n]]
+        holds = [HOLDS.get(first + j, 0.0) for j in range(counts[n])]
+        beats = [b + h for b, h in zip(spoken, holds)]
+        cuts = [
+            (sum(beats[:j]) + spoken[j] - CUT_BEFORE, h) for j, h in enumerate(holds) if h
+        ]
+        first += counts[n]
+        lead = timing["lead"] if n == 0 else 0.0
+        span = lead + sum(beats) + (TAIL_SECONDS if n == len(counts) - 1 else 0.0)
         port = free_port()
-        db = str(ROOT / "demo.sqlite")
-        print(f"starting SASH on {port} against {db}")
-        server = start_server(port, db)
+        db = str(ROOT / db_name)
+        print(f"part {n + 1}: starting SASH on {port} against {db}")
+        server = start_server(port, db, extra)
         url = f"http://127.0.0.1:{port}/"
-    else:
-        url = argument if argument.endswith("/") else argument + "/"
-
-    try:
-        print(f"recording {url} for {timing['total']:.0f}s")
-        raw = record(url, timing)
-    finally:
-        if server:
+        try:
+            if query == "early":
+                moved = run_to_after_cooking(url)
+                print(f"part {n + 1}: ran the tape {moved:g} min to just after cooking")
+            print(f"part {n + 1}: recording {url}?demo={query} for {span:.0f}s")
+            video, began, marks = record(url, query, beats, lead, span)
+            for at, hold in cuts:
+                pressed, landed = marks.get("advanced"), marks.get("landed")
+                print(f"part {n + 1}: held {hold:g}s at {at:.1f}s; pressed at {pressed}s, "
+                      f"landed at {landed}s")
+                # The walkthrough stamps the press once the button's flash
+                # and the cursor have gone, about half a second after the click.
+                if pressed is not None and pressed - 0.56 > at:
+                    print("the press itself falls inside the cut", file=sys.stderr)
+                if landed is None or landed > at + hold - 0.3:
+                    print("the held beat had not landed when its cut ends; raise HOLDS",
+                          file=sys.stderr)
+                    return 1
+            clips.append((video, span, began, cuts))
+        finally:
             server.terminate()
             try:
                 server.wait(timeout=20)
             except subprocess.TimeoutExpired:  # pragma: no cover
                 server.kill()
 
-    mux(raw, narration, OUT, timing["total"] + TAIL_SECONDS)
+    mux(clips, narration, OUT)
     length = probe_duration(OUT)
     print(f"wrote {OUT}  ({length:.1f}s)")
     if length > 180:
