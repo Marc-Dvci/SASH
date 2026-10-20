@@ -26,7 +26,7 @@ instrument that answers that.
 
 ![The decision card: open the Courtyard window at 06:45 for 57 minutes, 388 against the habit's 597](docs/img/writeup/sash-2-decision.png)
 
-**Demo video:** <https://youtu.be/ypKJ2x0LNcw>
+**Demo video:** <https://youtu.be/hFBa20fb9QI>
 
 ## For judges
 
@@ -285,7 +285,7 @@ docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK, AWS,
 
 ## Demo video
 
-<https://youtu.be/ypKJ2x0LNcw>, under three minutes. Built by `demo_video/narrate.py` and
+<https://youtu.be/hFBa20fb9QI>, under three minutes. Built by `demo_video/narrate.py` and
 `demo_video/record.py` around the walkthrough that ships in the product, so it is
 a recording of SASH rather than an animation of it. English subtitles in
 `demo_video/demo_subtitles.srt`.
