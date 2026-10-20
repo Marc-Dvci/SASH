@@ -33,8 +33,10 @@ this order, and each is stated on the card when it fires:
    recognised by :mod:`sash.analytics.sources`), carbon monoxide is above its
    usual level, or humidity is at 70 % or more: the airing starts within half an
    hour. SASH still picks the window, never the time.
-3. The home has had less than half its usual air in the last twelve hours: the
-   search looks three hours ahead, not twelve.
+3. The home has had less than half its usual day's air in the last
+   twenty-four hours: the search looks three hours ahead, not twelve. A full
+   day, because every home goes without air overnight and a shorter window
+   would call each morning overdue.
 4. Otherwise, the full twelve-hour search.
 
 The forecast of street activity is this street's own weekly habit, not a
@@ -150,6 +152,8 @@ class Demand:
 
     target_exchanges: float
     delivered_12h: float
+    target_day: float = 0.0
+    delivered_24h: float = 0.0
     drivers: list[str] = field(default_factory=list)
     humidity: float | None = None
     co: float | None = None
@@ -159,6 +163,8 @@ class Demand:
         return {
             "target_exchanges": round(self.target_exchanges, 2),
             "delivered_12h": round(self.delivered_12h, 2),
+            "target_day": round(self.target_day, 2),
+            "delivered_24h": round(self.delivered_24h, 2),
             "drivers": self.drivers,
             "humidity": self.humidity,
             "co": self.co,
@@ -282,6 +288,7 @@ def demand(
     target_12h = max(target_day / 2.0, 0.3)
 
     delivered = air_changes_delivered(intervals, model, now - 12 * 3600.0, now)
+    delivered_day = air_changes_delivered(intervals, model, now - 24 * 3600.0, now)
     drivers: list[str] = []
     if delivered < target_12h:
         drivers.append(
@@ -304,7 +311,9 @@ def demand(
         drivers.append(f"CO {co:.1f} ppm is above its usual level")
 
     level = "none"
-    if delivered < target_12h * 0.5:
+    # Judged over a whole day: a twelve-hour window ending in the morning is
+    # empty in every home that sleeps with its windows shut.
+    if delivered_day < max(target_day, 0.6) * 0.5:
         level = "overdue"
     elif drivers:
         level = "due"
@@ -312,6 +321,8 @@ def demand(
     return Demand(
         target_exchanges=target_12h,
         delivered_12h=delivered,
+        target_day=max(target_day, 0.6),
+        delivered_24h=delivered_day,
         drivers=drivers,
         humidity=humidity,
         co=co,
@@ -370,8 +381,8 @@ def step_aside(
     if need.level == "overdue":
         return (
             "overdue",
-            f"This home has had {need.delivered_12h:.1f} of its usual "
-            f"{need.target_exchanges:.1f} air changes in twelve hours, so SASH looks "
+            f"This home has had {need.delivered_24h:.1f} of its usual "
+            f"{need.target_day:.1f} air changes in the last day, so SASH looks "
             f"{OVERDUE_WITHIN_H:.0f} hours ahead rather than twelve.",
             OVERDUE_WITHIN_H,
         )

@@ -734,9 +734,10 @@ SASH recognised the cooking and switched to "air now" at
 At the {u['n_points']} ordinary decision points a rule fired at
 {u['points_fired']}. Across both kinds of moment the rules changed
 {u['n_changed']} plans; {u['changed_cost_more']} of those cost more street
-particulate than the plan they replaced, median difference
-{_num(u['changed_median_extra'])} ug/m3 x min (the replaced plans' median
-cost: {_num(u['changed_median_unruled'])}).
+particulate than the plan they replaced and
+{u['n_changed'] - u['changed_cost_more']} cost less. Median change
+{_num(u['changed_median_extra'])} ug/m3 x min, against a median of
+{_num(u['changed_median_unruled'])} for the plans replaced.
 
 ## False claims on openings that are identical
 

@@ -246,7 +246,7 @@ before the search, in order, and the first that fires is stated on the card:
 |---|---|---|
 | Carbon monoxide alert | CO at or above 9 ppm, Ring's own alert level | No plan. "Open the windows now and check anything that burns fuel." |
 | Air now | An indoor emission in the last 45 minutes (section 3), CO above 1 ppm, or humidity at 70 % or more | The airing starts within 30 minutes and is not held to the usual hours. SASH picks the window, not the time. |
-| Overdue | Less than half the household's usual air in the last twelve hours | The search looks three hours ahead instead of twelve. |
+| Overdue | Less than half the household's usual day of air in the last 24 hours | The search looks three hours ahead instead of twelve. |
 | Plan | Otherwise | The full twelve-hour search above. |
 
 The window is still chosen on particulate under "air now", and that is the right
@@ -258,12 +258,17 @@ The rules were measured, not assumed. `bench/run_benchmark.py` plans every
 decision point twice, with the rules and without, and prices both in the
 simulator. On 24 homes with 120 days of history, SASH recognised the
 cooking and switched to "air now" at 187 of 192 moments just after a meal. At
-the 126 ordinary decision points a rule fired at 42, all of them "overdue". The
-rules changed 22 plans in all; 12 of those cost more street particulate than
-the plan they replaced, by a median of 53 ug/m3 x min against a median of 56
-for the replaced plan. That is the price of not making an under-aired flat wait,
-and it shows in the decision score: plans that beat the habit went from 71 of 94
-to 68 of 87, and the median realised saving from 44.5 % to 37.5 %.
+the 126 ordinary decision points a rule fired at 13, all of them "overdue". The
+rules changed 8 plans in all; 7 of those let in less street particulate than the
+plan they replaced, because airing a room that has just been fouled clears it.
+With the rules in force, 69 of 88 plans beat the habit, at a median realised
+saving of 45.9 % (71 of 94 and 44.5 % before the rules).
+
+Overdue is judged over a whole day because every home goes without air
+overnight. Judged over twelve hours, the rule called 9 of 20 ordinary late
+mornings overdue in the test household, fired at 42 of the 126 decision points
+and pulled the median realised saving down to 37.5 %; over 24 hours it calls 1
+of those 20 mornings overdue (`tests/test_step_aside.py`).
 
 With less history the planner needs the rule more. On homes with 60 days of
 record, the planner without rules told the household to wait more than two

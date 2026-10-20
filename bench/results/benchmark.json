@@ -30,15 +30,15 @@
    "median_true_gap_withheld": 0.8294951594705984
   },
   "decisions": {
-   "n": 87,
-   "n_better": 68,
-   "accuracy": 0.7816091954022989,
+   "n": 88,
+   "n_better": 69,
+   "accuracy": 0.7840909090909091,
    "n_claimed": 27,
    "n_better_when_claimed": 22,
    "accuracy_when_claimed": 0.8148148148148148,
-   "median_true_saving_pct_claimed": 46.4,
-   "median_true_saving_pct": 37.5,
-   "median_pred_saving_pct": 50.9
+   "median_true_saving_pct_claimed": 65.2,
+   "median_true_saving_pct": 45.85,
+   "median_pred_saving_pct": 50.7
   },
   "rules": {
    "n_meals": 192,
@@ -48,18 +48,18 @@
    "meals_max_wait_h_unruled": 0.25,
    "meals_max_wait_h_ruled": 0.0,
    "n_points": 126,
-   "points_fired": 42,
+   "points_fired": 13,
    "modes": {
-    "plan": 89,
-    "overdue": 42,
+    "plan": 117,
+    "overdue": 14,
     "clear_now": 187,
     "safety": 0
    },
-   "n_changed": 22,
-   "changed_cost_more": 12,
-   "changed_median_extra": 53.25000000000002,
-   "changed_median_unruled": 55.55,
-   "share_points_changed": 0.15873015873015872
+   "n_changed": 8,
+   "changed_cost_more": 1,
+   "changed_median_extra": -218.25,
+   "changed_median_unruled": 107.80000000000001,
+   "share_points_changed": 0.047619047619047616
   },
   "false_claims": {
    "n_null_homes_ranked": 40,
@@ -82,7 +82,7 @@
   "days": 120.0,
   "seed": 1
  },
- "seconds": 500.8,
+ "seconds": 517.2,
  "homes": [
   {
    "kind": "real",
@@ -144,10 +144,10 @@
      "at": 1768287920.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 1094.8,
+     "true_chosen": 1383.6,
      "true_habit": 496.9,
-     "pred_saving_pct": 31.8,
-     "true_saving_pct": -120.3,
+     "pred_saving_pct": 34.4,
+     "true_saving_pct": -178.4,
      "better": false
     },
     {
@@ -185,7 +185,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 2380.3,
@@ -195,12 +195,12 @@
     {
      "at": 1768287920.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.75,
+     "mode": "plan",
+     "delay_h": 2.25,
      "delay_h_unruled": 2.25,
-     "true_ruled": 1094.8,
+     "true_ruled": 1383.6,
      "true_unruled": 1383.6,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768800515.0,
@@ -884,7 +884,7 @@
    ],
    "coverage": 0.8571428571428571,
    "n_coverage": 63,
-   "seconds": 8.79
+   "seconds": 8.75
   },
   {
    "kind": "real",
@@ -990,6 +990,26 @@
      "pred_saving_pct": 52.5,
      "true_saving_pct": -64.5,
      "better": false
+    },
+    {
+     "at": 1769825705.0,
+     "chosen": "ava1.ring.device.SIMWIN2",
+     "habit": "ava1.ring.device.SIMWIN0",
+     "true_chosen": 1508.0,
+     "true_habit": 1649.2,
+     "pred_saving_pct": 50.0,
+     "true_saving_pct": 8.6,
+     "better": true
+    },
+    {
+     "at": 1770338300.0,
+     "chosen": "ava1.ring.device.SIMWIN2",
+     "habit": "ava1.ring.device.SIMWIN0",
+     "true_chosen": 473.6,
+     "true_habit": 657.4,
+     "pred_saving_pct": 36.7,
+     "true_saving_pct": 28.0,
+     "better": true
     }
    ],
    "rules": [
@@ -1031,6 +1051,26 @@
      "delay_h_unruled": 5.5,
      "true_ruled": 593.8,
      "true_unruled": 593.8,
+     "changed": false
+    },
+    {
+     "at": 1769825705.0,
+     "after_meal": false,
+     "mode": "plan",
+     "delay_h": 7.0,
+     "delay_h_unruled": 7.0,
+     "true_ruled": 1508.0,
+     "true_unruled": 1508.0,
+     "changed": false
+    },
+    {
+     "at": 1770338300.0,
+     "after_meal": false,
+     "mode": "plan",
+     "delay_h": 5.5,
+     "delay_h_unruled": 5.5,
+     "true_ruled": 473.6,
+     "true_unruled": 473.6,
      "changed": false
     },
     {
@@ -1568,7 +1608,7 @@
    ],
    "coverage": 0.92,
    "n_coverage": 50,
-   "seconds": 9.96
+   "seconds": 10.04
   },
   {
    "kind": "real",
@@ -1676,16 +1716,6 @@
      "better": false
     },
     {
-     "at": 1769825705.0,
-     "chosen": "ava1.ring.device.SIMWIN1",
-     "habit": "ava1.ring.device.SIMWIN2",
-     "true_chosen": 326.7,
-     "true_habit": 377.9,
-     "pred_saving_pct": 63.1,
-     "true_saving_pct": 13.6,
-     "better": true
-    },
-    {
      "at": 1770338300.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN2",
@@ -1700,7 +1730,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 309.2,
@@ -1735,16 +1765,6 @@
      "delay_h_unruled": 4.25,
      "true_ruled": 1095.6,
      "true_unruled": 1095.6,
-     "changed": false
-    },
-    {
-     "at": 1769825705.0,
-     "after_meal": false,
-     "mode": "plan",
-     "delay_h": 6.25,
-     "delay_h_unruled": 6.25,
-     "true_ruled": 326.7,
-     "true_unruled": 326.7,
      "changed": false
     },
     {
@@ -2247,7 +2267,7 @@
    ],
    "coverage": 0.8666666666666667,
    "n_coverage": 45,
-   "seconds": 10.59
+   "seconds": 10.43
   },
   {
    "kind": "real",
@@ -2309,10 +2329,10 @@
      "at": 1768287920.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 305.2,
+     "true_chosen": 378.5,
      "true_habit": 838.8,
-     "pred_saving_pct": 59.1,
-     "true_saving_pct": 63.6,
+     "pred_saving_pct": 61.4,
+     "true_saving_pct": 54.9,
      "better": true
     },
     {
@@ -2370,12 +2390,12 @@
     {
      "at": 1768287920.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.75,
+     "mode": "plan",
+     "delay_h": 2.25,
      "delay_h_unruled": 2.25,
-     "true_ruled": 305.2,
+     "true_ruled": 378.5,
      "true_unruled": 378.5,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768800515.0,
@@ -2390,7 +2410,7 @@
     {
      "at": 1769313110.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 2.0,
      "delay_h_unruled": 2.0,
      "true_ruled": 5413.0,
@@ -3141,7 +3161,7 @@
    ],
    "coverage": 0.9154929577464789,
    "n_coverage": 71,
-   "seconds": 9.64
+   "seconds": 9.45
   },
   {
    "kind": "real",
@@ -3921,7 +3941,7 @@
    ],
    "coverage": 0.9047619047619048,
    "n_coverage": 63,
-   "seconds": 10.63
+   "seconds": 10.69
   },
   {
    "kind": "real",
@@ -3973,10 +3993,10 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 149.0,
+     "true_chosen": -2621.4,
      "true_habit": 285.8,
-     "pred_saving_pct": 49.9,
-     "true_saving_pct": 47.9,
+     "pred_saving_pct": 61.0,
+     "true_saving_pct": 1017.3,
      "better": true
     },
     {
@@ -4024,12 +4044,12 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 2.25,
+     "mode": "plan",
+     "delay_h": 4.75,
      "delay_h_unruled": 4.75,
-     "true_ruled": 149.0,
+     "true_ruled": -2621.4,
      "true_unruled": -2621.4,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
@@ -4795,7 +4815,7 @@
    ],
    "coverage": 0.8591549295774648,
    "n_coverage": 71,
-   "seconds": 10.07
+   "seconds": 9.63
   },
   {
    "kind": "real",
@@ -5225,7 +5245,7 @@
    ],
    "coverage": 0.875,
    "n_coverage": 24,
-   "seconds": 9.55
+   "seconds": 9.62
   },
   {
    "kind": "real",
@@ -5277,7 +5297,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 118.2,
@@ -5297,21 +5317,11 @@
     {
      "at": 1768800515.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 2.0,
-     "delay_h_unruled": 3.75,
-     "true_ruled": 1036.6,
-     "true_unruled": 628.0,
-     "changed": true
-    },
-    {
-     "at": 1769313110.0,
-     "after_meal": false,
      "mode": "plan",
-     "delay_h": 5.5,
-     "delay_h_unruled": 5.5,
-     "true_ruled": -108.9,
-     "true_unruled": -108.9,
+     "delay_h": 3.75,
+     "delay_h_unruled": 3.75,
+     "true_ruled": 628.0,
+     "true_unruled": 628.0,
      "changed": false
     },
     {
@@ -6039,7 +6049,7 @@
    ],
    "coverage": 0.8714285714285714,
    "n_coverage": 70,
-   "seconds": 8.64
+   "seconds": 8.88
   },
   {
    "kind": "real",
@@ -6091,10 +6101,10 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 495.1,
+     "true_chosen": -5121.3,
      "true_habit": 671.8,
-     "pred_saving_pct": 22.1,
-     "true_saving_pct": 26.3,
+     "pred_saving_pct": 45.9,
+     "true_saving_pct": 862.3,
      "better": true
     },
     {
@@ -6152,12 +6162,12 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 0.25,
+     "mode": "plan",
+     "delay_h": 11.5,
      "delay_h_unruled": 11.5,
-     "true_ruled": 495.1,
+     "true_ruled": -5121.3,
      "true_unruled": -5121.3,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
@@ -6717,7 +6727,7 @@
    ],
    "coverage": 0.8936170212765957,
    "n_coverage": 47,
-   "seconds": 8.94
+   "seconds": 9.3
   },
   {
    "kind": "real",
@@ -7483,7 +7493,7 @@
    ],
    "coverage": 0.8620689655172413,
    "n_coverage": 58,
-   "seconds": 10.6
+   "seconds": 10.99
   },
   {
    "kind": "real",
@@ -8277,7 +8287,7 @@
    ],
    "coverage": 0.8833333333333333,
    "n_coverage": 60,
-   "seconds": 10.91
+   "seconds": 11.21
   },
   {
    "kind": "real",
@@ -8350,7 +8360,7 @@
     {
      "at": 1767775550.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 101.7,
@@ -8932,7 +8942,7 @@
    ],
    "coverage": 0.92,
    "n_coverage": 50,
-   "seconds": 9.38
+   "seconds": 9.14
   },
   {
    "kind": "real",
@@ -9003,10 +9013,10 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN0",
      "habit": "ava1.ring.device.SIMWIN1",
-     "true_chosen": 377.1,
+     "true_chosen": -2333.3,
      "true_habit": 734.7,
-     "pred_saving_pct": 19.6,
-     "true_saving_pct": 48.7,
+     "pred_saving_pct": 29.2,
+     "true_saving_pct": 417.6,
      "better": true
     },
     {
@@ -9054,12 +9064,12 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.0,
+     "mode": "plan",
+     "delay_h": 4.0,
      "delay_h_unruled": 4.0,
-     "true_ruled": 377.1,
+     "true_ruled": -2333.3,
      "true_unruled": -2333.3,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
@@ -9763,7 +9773,7 @@
    ],
    "coverage": 0.8888888888888888,
    "n_coverage": 63,
-   "seconds": 10.84
+   "seconds": 11.06
   },
   {
    "kind": "real",
@@ -9815,7 +9825,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 909.1,
@@ -9835,7 +9845,7 @@
     {
      "at": 1768800515.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 1.0,
      "delay_h_unruled": 1.0,
      "true_ruled": 302.0,
@@ -10542,7 +10552,7 @@
    ],
    "coverage": 0.9230769230769231,
    "n_coverage": 65,
-   "seconds": 8.91
+   "seconds": 9.1
   },
   {
    "kind": "real",
@@ -10640,16 +10650,6 @@
      "better": true
     },
     {
-     "at": 1769825705.0,
-     "chosen": "ava1.ring.device.SIMWIN2",
-     "habit": "ava1.ring.device.SIMWIN1",
-     "true_chosen": 935.9,
-     "true_habit": 829.0,
-     "pred_saving_pct": 2.5,
-     "true_saving_pct": -12.9,
-     "better": false
-    },
-    {
      "at": 1770338300.0,
      "chosen": "ava1.ring.device.SIMWIN2",
      "habit": "ava1.ring.device.SIMWIN1",
@@ -10664,7 +10664,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 238.5,
@@ -10689,16 +10689,6 @@
      "delay_h_unruled": 1.5,
      "true_ruled": 900.7,
      "true_unruled": 900.7,
-     "changed": false
-    },
-    {
-     "at": 1769825705.0,
-     "after_meal": false,
-     "mode": "plan",
-     "delay_h": 4.5,
-     "delay_h_unruled": 4.5,
-     "true_ruled": 935.9,
-     "true_unruled": 935.9,
      "changed": false
     },
     {
@@ -11129,7 +11119,7 @@
    ],
    "coverage": 0.918918918918919,
    "n_coverage": 37,
-   "seconds": 9.8
+   "seconds": 10.05
   },
   {
    "kind": "real",
@@ -11200,7 +11190,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": -18.9,
@@ -11220,7 +11210,7 @@
     {
      "at": 1768800515.0,
      "after_meal": false,
-     "mode": "plan",
+     "mode": "overdue",
      "delay_h": 1.5,
      "delay_h_unruled": 1.5,
      "true_ruled": 1631.3,
@@ -11728,7 +11718,7 @@
    ],
    "coverage": 0.9318181818181818,
    "n_coverage": 44,
-   "seconds": 10.04
+   "seconds": 11.86
   },
   {
    "kind": "real",
@@ -11829,10 +11819,10 @@
      "at": 1769313110.0,
      "chosen": "ava1.ring.device.SIMWIN2",
      "habit": "ava1.ring.device.SIMWIN1",
-     "true_chosen": 402.5,
+     "true_chosen": -4318.3,
      "true_habit": 429.5,
-     "pred_saving_pct": 90.1,
-     "true_saving_pct": 6.3,
+     "pred_saving_pct": 93.0,
+     "true_saving_pct": 1105.5,
      "better": true
     },
     {
@@ -11850,7 +11840,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 147.1,
@@ -11880,12 +11870,12 @@
     {
      "at": 1769313110.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 2.75,
+     "mode": "plan",
+     "delay_h": 10.0,
      "delay_h_unruled": 10.0,
-     "true_ruled": 402.5,
+     "true_ruled": -4318.3,
      "true_unruled": -4318.3,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1769825705.0,
@@ -12594,7 +12584,7 @@
    ],
    "coverage": 0.8529411764705882,
    "n_coverage": 68,
-   "seconds": 12.2
+   "seconds": 12.48
   },
   {
    "kind": "real",
@@ -12665,20 +12655,20 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN2",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 375.0,
+     "true_chosen": 1213.3,
      "true_habit": 707.9,
-     "pred_saving_pct": 28.5,
-     "true_saving_pct": 47.0,
-     "better": true
+     "pred_saving_pct": 32.0,
+     "true_saving_pct": -71.4,
+     "better": false
     },
     {
      "at": 1768287920.0,
      "chosen": "ava1.ring.device.SIMWIN2",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 430.1,
+     "true_chosen": 373.2,
      "true_habit": 1447.4,
-     "pred_saving_pct": 27.5,
-     "true_saving_pct": 70.3,
+     "pred_saving_pct": 28.7,
+     "true_saving_pct": 74.2,
      "better": true
     },
     {
@@ -12710,28 +12700,38 @@
      "pred_saving_pct": 12.2,
      "true_saving_pct": 36.4,
      "better": true
+    },
+    {
+     "at": 1770338300.0,
+     "chosen": "ava1.ring.device.SIMWIN2",
+     "habit": "ava1.ring.device.SIMWIN1",
+     "true_chosen": 834.0,
+     "true_habit": 2187.7,
+     "pred_saving_pct": 14.5,
+     "true_saving_pct": 61.9,
+     "better": true
     }
    ],
    "rules": [
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.5,
+     "mode": "plan",
+     "delay_h": 2.5,
      "delay_h_unruled": 2.5,
-     "true_ruled": 375.0,
+     "true_ruled": 1213.3,
      "true_unruled": 1213.3,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.0,
+     "mode": "plan",
+     "delay_h": 1.25,
      "delay_h_unruled": 1.25,
-     "true_ruled": 430.1,
+     "true_ruled": 373.2,
      "true_unruled": 373.2,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768800515.0,
@@ -12761,6 +12761,16 @@
      "delay_h_unruled": 4.0,
      "true_ruled": 635.1,
      "true_unruled": 635.1,
+     "changed": false
+    },
+    {
+     "at": 1770338300.0,
+     "after_meal": false,
+     "mode": "plan",
+     "delay_h": 5.5,
+     "delay_h_unruled": 5.5,
+     "true_ruled": 834.0,
+     "true_unruled": 834.0,
      "changed": false
     },
     {
@@ -13334,7 +13344,7 @@
    ],
    "coverage": 0.9259259259259259,
    "n_coverage": 54,
-   "seconds": 10.28
+   "seconds": 11.69
   },
   {
    "kind": "real",
@@ -13446,7 +13456,7 @@
     {
      "at": 1767774650.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 276.9,
@@ -13456,7 +13466,7 @@
     {
      "at": 1768287200.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 657.9,
@@ -13556,7 +13566,7 @@
     {
      "at": 1770323060.0,
      "after_meal": true,
-     "mode": "plan",
+     "mode": "overdue",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": -1738.5,
@@ -13820,7 +13830,7 @@
    ],
    "coverage": 0.9642857142857143,
    "n_coverage": 28,
-   "seconds": 10.85
+   "seconds": 11.62
   },
   {
    "kind": "real",
@@ -13872,10 +13882,10 @@
      "at": 1767774650.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 557.8,
+     "true_chosen": -4883.8,
      "true_habit": 794.9,
-     "pred_saving_pct": 52.2,
-     "true_saving_pct": 29.8,
+     "pred_saving_pct": 59.6,
+     "true_saving_pct": 714.4,
      "better": true
     },
     {
@@ -13923,12 +13933,12 @@
     {
      "at": 1767774650.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.25,
+     "mode": "plan",
+     "delay_h": 5.0,
      "delay_h_unruled": 5.0,
-     "true_ruled": 557.8,
+     "true_ruled": -4883.8,
      "true_unruled": -4883.8,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287200.0,
@@ -14442,7 +14452,7 @@
    ],
    "coverage": 0.9069767441860465,
    "n_coverage": 43,
-   "seconds": 9.75
+   "seconds": 9.92
   },
   {
    "kind": "real",
@@ -14513,10 +14523,10 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 168.1,
+     "true_chosen": -6268.9,
      "true_habit": 193.1,
-     "pred_saving_pct": 56.0,
-     "true_saving_pct": 12.9,
+     "pred_saving_pct": 64.0,
+     "true_saving_pct": 3346.2,
      "better": true
     },
     {
@@ -14554,12 +14564,12 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 1.25,
+     "mode": "plan",
+     "delay_h": 4.25,
      "delay_h_unruled": 4.25,
-     "true_ruled": 168.1,
+     "true_ruled": -6268.9,
      "true_unruled": -6268.9,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
@@ -15200,7 +15210,7 @@
    ],
    "coverage": 0.875,
    "n_coverage": 56,
-   "seconds": 11.1
+   "seconds": 11.3
   },
   {
    "kind": "real",
@@ -15252,7 +15262,7 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 883.8,
@@ -15262,7 +15272,7 @@
     {
      "at": 1768287920.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.25,
      "delay_h_unruled": 0.25,
      "true_ruled": 542.3,
@@ -15272,7 +15282,7 @@
     {
      "at": 1768800515.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 1.75,
      "delay_h_unruled": 1.75,
      "true_ruled": 3068.1,
@@ -15834,7 +15844,7 @@
    ],
    "coverage": 0.9,
    "n_coverage": 50,
-   "seconds": 8.84
+   "seconds": 9.18
   },
   {
    "kind": "real",
@@ -15905,10 +15915,10 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN2",
      "habit": "ava1.ring.device.SIMWIN1",
-     "true_chosen": 160.8,
+     "true_chosen": 111.2,
      "true_habit": 267.5,
-     "pred_saving_pct": 17.7,
-     "true_saving_pct": 39.9,
+     "pred_saving_pct": 21.5,
+     "true_saving_pct": 58.4,
      "better": true
     },
     {
@@ -15946,17 +15956,17 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 0.5,
+     "mode": "plan",
+     "delay_h": 1.0,
      "delay_h_unruled": 1.0,
-     "true_ruled": 160.8,
+     "true_ruled": 111.2,
      "true_unruled": 111.2,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
      "after_meal": false,
-     "mode": "overdue",
+     "mode": "plan",
      "delay_h": 0.0,
      "delay_h_unruled": 0.0,
      "true_ruled": 219.0,
@@ -16384,7 +16394,7 @@
    ],
    "coverage": 0.9411764705882353,
    "n_coverage": 34,
-   "seconds": 11.04
+   "seconds": 11.4
   },
   {
    "kind": "real",
@@ -16436,10 +16446,10 @@
      "at": 1767775325.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 233.2,
+     "true_chosen": -1897.8,
      "true_habit": 816.7,
-     "pred_saving_pct": 46.6,
-     "true_saving_pct": 71.4,
+     "pred_saving_pct": 50.5,
+     "true_saving_pct": 332.4,
      "better": true
     },
     {
@@ -16456,10 +16466,10 @@
      "at": 1768800515.0,
      "chosen": "ava1.ring.device.SIMWIN1",
      "habit": "ava1.ring.device.SIMWIN0",
-     "true_chosen": 883.1,
+     "true_chosen": 56.9,
      "true_habit": 1316.3,
-     "pred_saving_pct": 21.4,
-     "true_saving_pct": 32.9,
+     "pred_saving_pct": 34.2,
+     "true_saving_pct": 95.7,
      "better": true
     },
     {
@@ -16497,12 +16507,12 @@
     {
      "at": 1767775325.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 2.25,
+     "mode": "plan",
+     "delay_h": 3.5,
      "delay_h_unruled": 3.5,
-     "true_ruled": 233.2,
+     "true_ruled": -1897.8,
      "true_unruled": -1897.8,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1768287920.0,
@@ -16517,12 +16527,12 @@
     {
      "at": 1768800515.0,
      "after_meal": false,
-     "mode": "overdue",
-     "delay_h": 0.75,
+     "mode": "plan",
+     "delay_h": 4.25,
      "delay_h_unruled": 4.25,
-     "true_ruled": 883.1,
+     "true_ruled": 56.9,
      "true_unruled": 56.9,
-     "changed": true
+     "changed": false
     },
     {
      "at": 1769313110.0,
@@ -17233,7 +17243,7 @@
    ],
    "coverage": 0.7878787878787878,
    "n_coverage": 66,
-   "seconds": 9.55
+   "seconds": 9.57
   },
   {
    "kind": "null",
@@ -17736,7 +17746,7 @@
    ],
    "coverage": 0.94,
    "n_coverage": 50,
-   "seconds": 6.09
+   "seconds": 6.3
   },
   {
    "kind": "null",
@@ -18320,7 +18330,7 @@
    ],
    "coverage": 0.864406779661017,
    "n_coverage": 59,
-   "seconds": 6.47
+   "seconds": 6.57
   },
   {
    "kind": "null",
@@ -18868,7 +18878,7 @@
    ],
    "coverage": 0.8909090909090909,
    "n_coverage": 55,
-   "seconds": 6.46
+   "seconds": 6.79
   },
   {
    "kind": "null",
@@ -19488,7 +19498,7 @@
    ],
    "coverage": 0.9841269841269841,
    "n_coverage": 63,
-   "seconds": 6.76
+   "seconds": 7.12
   },
   {
    "kind": "null",
@@ -20027,7 +20037,7 @@
    ],
    "coverage": 0.8703703703703703,
    "n_coverage": 54,
-   "seconds": 6.41
+   "seconds": 6.69
   },
   {
    "kind": "null",
@@ -20602,7 +20612,7 @@
    ],
    "coverage": 0.8448275862068966,
    "n_coverage": 58,
-   "seconds": 6.42
+   "seconds": 6.85
   },
   {
    "kind": "null",
@@ -21141,7 +21151,7 @@
    ],
    "coverage": 0.8333333333333334,
    "n_coverage": 54,
-   "seconds": 6.32
+   "seconds": 6.53
   },
   {
    "kind": "null",
@@ -21833,7 +21843,7 @@
    ],
    "coverage": 0.8732394366197183,
    "n_coverage": 71,
-   "seconds": 6.68
+   "seconds": 6.87
   },
   {
    "kind": "null",
@@ -22363,7 +22373,7 @@
    ],
    "coverage": 0.9811320754716981,
    "n_coverage": 53,
-   "seconds": 6.66
+   "seconds": 6.86
   },
   {
    "kind": "null",
@@ -22920,7 +22930,7 @@
    ],
    "coverage": 0.9107142857142857,
    "n_coverage": 56,
-   "seconds": 6.39
+   "seconds": 6.62
   },
   {
    "kind": "null",
@@ -23396,7 +23406,7 @@
    ],
    "coverage": 0.9574468085106383,
    "n_coverage": 47,
-   "seconds": 6.63
+   "seconds": 6.83
   },
   {
    "kind": "null",
@@ -23944,7 +23954,7 @@
    ],
    "coverage": 0.8363636363636363,
    "n_coverage": 55,
-   "seconds": 6.37
+   "seconds": 6.66
   },
   {
    "kind": "null",
@@ -24582,7 +24592,7 @@
    ],
    "coverage": 0.8923076923076924,
    "n_coverage": 65,
-   "seconds": 6.48
+   "seconds": 6.86
   },
   {
    "kind": "null",
@@ -25058,7 +25068,7 @@
    ],
    "coverage": 0.9787234042553191,
    "n_coverage": 47,
-   "seconds": 6.32
+   "seconds": 6.69
   },
   {
    "kind": "null",
@@ -25597,7 +25607,7 @@
    ],
    "coverage": 0.8333333333333334,
    "n_coverage": 54,
-   "seconds": 6.5
+   "seconds": 6.68
   },
   {
    "kind": "null",
@@ -26226,7 +26236,7 @@
    ],
    "coverage": 0.90625,
    "n_coverage": 64,
-   "seconds": 6.62
+   "seconds": 6.82
   },
   {
    "kind": "null",
@@ -26765,7 +26775,7 @@
    ],
    "coverage": 0.8703703703703703,
    "n_coverage": 54,
-   "seconds": 6.54
+   "seconds": 6.83
   },
   {
    "kind": "null",
@@ -27241,7 +27251,7 @@
    ],
    "coverage": 0.8297872340425532,
    "n_coverage": 47,
-   "seconds": 6.55
+   "seconds": 7.05
   },
   {
    "kind": "null",
@@ -27735,7 +27745,7 @@
    ],
    "coverage": 0.8163265306122449,
    "n_coverage": 49,
-   "seconds": 6.73
+   "seconds": 7.04
   },
   {
    "kind": "null",
@@ -28247,7 +28257,7 @@
    ],
    "coverage": 0.7843137254901961,
    "n_coverage": 51,
-   "seconds": 6.63
+   "seconds": 6.86
   },
   {
    "kind": "null",
@@ -28822,7 +28832,7 @@
    ],
    "coverage": 0.896551724137931,
    "n_coverage": 58,
-   "seconds": 6.57
+   "seconds": 6.76
   },
   {
    "kind": "null",
@@ -29433,7 +29443,7 @@
    ],
    "coverage": 0.8870967741935484,
    "n_coverage": 62,
-   "seconds": 6.22
+   "seconds": 6.46
   },
   {
    "kind": "null",
@@ -29972,7 +29982,7 @@
    ],
    "coverage": 0.9444444444444444,
    "n_coverage": 54,
-   "seconds": 6.36
+   "seconds": 6.65
   },
   {
    "kind": "null",
@@ -30601,7 +30611,7 @@
    ],
    "coverage": 0.890625,
    "n_coverage": 64,
-   "seconds": 6.84
+   "seconds": 7.09
   },
   {
    "kind": "null",
@@ -31257,7 +31267,7 @@
    ],
    "coverage": 0.9402985074626866,
    "n_coverage": 67,
-   "seconds": 6.77
+   "seconds": 7.0
   },
   {
    "kind": "null",
@@ -31868,7 +31878,7 @@
    ],
    "coverage": 0.8387096774193549,
    "n_coverage": 62,
-   "seconds": 6.47
+   "seconds": 6.75
   },
   {
    "kind": "null",
@@ -32398,7 +32408,7 @@
    ],
    "coverage": 0.8867924528301887,
    "n_coverage": 53,
-   "seconds": 6.38
+   "seconds": 6.67
   },
   {
    "kind": "null",
@@ -32973,7 +32983,7 @@
    ],
    "coverage": 0.8275862068965517,
    "n_coverage": 58,
-   "seconds": 6.51
+   "seconds": 6.78
   },
   {
    "kind": "null",
@@ -33494,7 +33504,7 @@
    ],
    "coverage": 0.9615384615384616,
    "n_coverage": 52,
-   "seconds": 6.39
+   "seconds": 6.54
   },
   {
    "kind": "null",
@@ -34051,7 +34061,7 @@
    ],
    "coverage": 0.8928571428571429,
    "n_coverage": 56,
-   "seconds": 6.5
+   "seconds": 6.67
   },
   {
    "kind": "null",
@@ -34626,7 +34636,7 @@
    ],
    "coverage": 0.8448275862068966,
    "n_coverage": 58,
-   "seconds": 6.55
+   "seconds": 6.83
   },
   {
    "kind": "null",
@@ -35282,7 +35292,7 @@
    ],
    "coverage": 0.9104477611940298,
    "n_coverage": 67,
-   "seconds": 6.49
+   "seconds": 6.73
   },
   {
    "kind": "null",
@@ -35875,7 +35885,7 @@
    ],
    "coverage": 0.8833333333333333,
    "n_coverage": 60,
-   "seconds": 6.47
+   "seconds": 6.71
   },
   {
    "kind": "null",
@@ -36414,7 +36424,7 @@
    ],
    "coverage": 0.9629629629629629,
    "n_coverage": 54,
-   "seconds": 6.4
+   "seconds": 6.6
   },
   {
    "kind": "null",
@@ -36953,7 +36963,7 @@
    ],
    "coverage": 0.9074074074074074,
    "n_coverage": 54,
-   "seconds": 6.4
+   "seconds": 6.57
   },
   {
    "kind": "null",
@@ -37465,7 +37475,7 @@
    ],
    "coverage": 0.8235294117647058,
    "n_coverage": 51,
-   "seconds": 6.63
+   "seconds": 6.7
   },
   {
    "kind": "null",
@@ -37995,7 +38005,7 @@
    ],
    "coverage": 0.8679245283018868,
    "n_coverage": 53,
-   "seconds": 6.61
+   "seconds": 6.84
   },
   {
    "kind": "null",
@@ -38489,7 +38499,7 @@
    ],
    "coverage": 0.9387755102040817,
    "n_coverage": 49,
-   "seconds": 6.35
+   "seconds": 6.54
   },
   {
    "kind": "null",
@@ -38974,7 +38984,7 @@
    ],
    "coverage": 0.7708333333333334,
    "n_coverage": 48,
-   "seconds": 6.29
+   "seconds": 6.46
   },
   {
    "kind": "null",
@@ -39486,7 +39496,7 @@
    ],
    "coverage": 0.7843137254901961,
    "n_coverage": 51,
-   "seconds": 6.44
+   "seconds": 6.64
   }
  ]
 }

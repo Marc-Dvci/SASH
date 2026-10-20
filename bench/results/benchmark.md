@@ -35,16 +35,16 @@ opening it named as cheaper really was cheaper in
 
 ## Decision quality
 
-68 of 87 recommendations (78.2%) really did cost
+69 of 88 recommendations (78.4%) really did cost
 less than the household's own habitual airing, measured by re-integrating the flat
 in the simulator on the record that actually happened. Median realised saving
-37.5%, against a median forecast saving of
-50.9%.
+45.9%, against a median forecast saving of
+50.7%.
 
 Restricted to the households where the openings are distinguishable at all:
 **22 of 27**
 (81.5%), median realised saving
-**46.4%**.
+**65.2%**.
 
 ## Stepping aside
 
@@ -56,11 +56,12 @@ SASH recognised the cooking and switched to "air now" at
 187 of the 192.
 
 At the 126 ordinary decision points a rule fired at
-42. Across both kinds of moment the rules changed
-22 plans; 12 of those cost more street
-particulate than the plan they replaced, median difference
-53.3 ug/m3 x min (the replaced plans' median
-cost: 55.5).
+13. Across both kinds of moment the rules changed
+8 plans; 1 of those cost more street
+particulate than the plan they replaced and
+7 cost less. Median change
+-218.2 ug/m3 x min, against a median of
+107.8 for the plans replaced.
 
 ## False claims on openings that are identical
 
@@ -87,4 +88,4 @@ well. That is why the product's claim is a comparison between two openings on
 the same day rather than an absolute number: the terms that make a single
 airing uncertain are common to both sides of it.
 
-Ran in 501 s.
+Ran in 517 s.

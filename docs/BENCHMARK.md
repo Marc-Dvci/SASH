@@ -75,10 +75,10 @@ cooking. Neither trajectory is one SASH fitted.
 
 | | |
 |---|---|
-| Recommendations that really cost less than the habit | **68 of 87** (78.2%) |
-| Median realised saving | **37.5%** |
-| Median forecast saving | 50.9% |
-| Restricted to homes whose openings are distinguishable at all | **22 of 27** (81.5%), median realised saving **46.4%** |
+| Recommendations that really cost less than the habit | **69 of 88** (78.4%) |
+| Median realised saving | **45.9%** |
+| Median forecast saving | 50.7% |
+| Restricted to homes whose openings are distinguishable at all | **22 of 27** (81.5%), median realised saving **65.2%** |
 
 These are with the step-aside rules of section 6 in force, which sometimes make
 a household air sooner than the cheapest plan would. Before the rules the same
@@ -154,9 +154,9 @@ and without, and both plans are priced in the simulator.
 | Moments ten minutes after a meal | 192 |
 | ... at which SASH recognised the cooking and said "air now" | **187** |
 | ... told to wait more than two hours, without the rules / with them | 0 / **0** |
-| Ordinary decision points at which a rule fired | 42 of 126, all "overdue" |
-| Plans the rules changed | 22 |
-| ... that then cost more street particulate | 12, median +53 ug/m3 x min (replaced plans' median 56) |
+| Ordinary decision points at which a rule fired | 13 of 126, all "overdue" |
+| Plans the rules changed | 8 |
+| ... that then cost more street particulate | 1 (7 cost less) |
 
 On this record the planner already chose "now" after every meal, because a
 dirty room is cleaned by opening it. With less history it does not always: on

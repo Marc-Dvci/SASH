@@ -72,7 +72,7 @@ motion is delivered by Ring and discarded at the door: 10,300 dropped against
 ## Four minutes: check the work
 
 ```bash
-pytest                                            # 165 tests
+pytest                                            # 166 tests
 sash bench --homes 24 --nulls 40 --days 120       # about 8 minutes
 python bench/onboarding.py --homes 24 --days 45   # about 14 minutes
 ```
@@ -87,7 +87,7 @@ to the shipping parsers.
 | Air exchange rate recovered to | 7.1% median relative error |
 | Pairs called correctly | 14 of 15 |
 | False claims on 40 identical-opening homes | 2 (5.0%) |
-| Recommendations that beat the household's habit | 68 of 87, median saving 37.5% |
+| Recommendations that beat the household's habit | 69 of 88, median saving 45.9% |
 | Moments just after a meal at which SASH said "air now" | 187 of 192 |
 | Days until every window is measured, median | 40 on habit, 11 guided |
 | Coverage of the 90% interval, 3,517 held-out airings | 88.6% |

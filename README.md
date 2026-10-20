@@ -34,7 +34,7 @@ instrument that answers that.
 |---|---|
 | Tech implementation | The Ring client, webhooks and OAuth in `src/sash/ring/`, pinned to Ring's reference payloads by `tests/test_ring_contract.py`; the SAM stack in `infra/template.yaml`, live at <https://i1jcuqoto7.execute-api.us-east-1.amazonaws.com/dev/>; Amazon Bedrock behind a number guard (`docs/AWS.md`) |
 | Design | The screens in [What it does](#what-it-does-in-four-screens), live on AWS; every plan published before the airing and scored after it; [the first weeks](#the-first-weeks) guided window by window, every window measured in a median of 11 days instead of 40 |
-| Potential impact | A non-security use of Ring hardware a household already owns; [Evidence](#evidence): 68 of 87 plans beat the household's habit; [it steps aside](#when-sash-steps-aside) when cooking, moisture or carbon monoxide makes airing urgent |
+| Potential impact | A non-security use of Ring hardware a household already owns; [Evidence](#evidence): 69 of 88 plans beat the household's habit; [it steps aside](#when-sash-steps-aside) when cooking, moisture or carbon monoxide makes airing urgent |
 | Quality of the idea | Carbon monoxide from cooking as a tracer gas ([How it works](#how-it-works)); a permutation test before SASH names a better window |
 
 ---
@@ -93,7 +93,7 @@ sash fit                        # print the fitted household model as JSON
 sash serve                      # serve an existing database
 sash bench --homes 24 --nulls 40 --days 120     # the benchmark below
 python bench/onboarding.py --homes 24 --days 45 # the first weeks, habit against guided
-pytest                          # 165 tests
+pytest                          # 166 tests
 ```
 
 ---
@@ -149,15 +149,16 @@ search, and the card says which one fired:
 |---|---|---|
 | Carbon monoxide alert | CO at or above 9 ppm, Ring's own alert level | No plan: open the windows, check anything that burns fuel |
 | Air now | Cooking, a shower or a candle in the last 45 minutes, CO above 1 ppm, or humidity at 70% or more | The airing starts within 30 minutes. SASH picks the window, not the time |
-| Overdue | Less than half the usual air in the last twelve hours | Looks three hours ahead, not twelve |
+| Overdue | Less than half the usual day of air in the last 24 hours | Looks three hours ahead, not twelve |
 | Plan | Otherwise | The full twelve-hour search |
 
 Every candidate delivers the same air changes, so under "air now" they remove the
 same moisture and fumes and differ only in what they bring in from the street.
 On the benchmark, SASH recognised the cooking and said "air now" at 187 of 192
-moments just after a meal. The rules have a price, and it is measured: of the
-22 plans they changed, 12 cost more street particulate than the plan they
-replaced (`docs/BENCHMARK.md`, section 6).
+moments just after a meal. The rules were priced, not assumed: of the 8 plans
+they changed, 7 then let in less street particulate than the plan they replaced,
+and the median realised saving is 45.9% with them in force
+(`docs/BENCHMARK.md`, section 6).
 
 ---
 
@@ -196,7 +197,7 @@ identical, it announced a difference on 2 of them, at a nominal 5%.
 
 ## Evidence
 
-![14 of 15 comparisons named the truly cleaner window; 2 of 40 false claims on identical windows; 68 of 87 plans beat the habit; 7.1 % median error on air exchange](docs/img/writeup/sash-5-scorecard.png)
+![14 of 15 comparisons named the truly cleaner window; 2 of 40 false claims on identical windows; 69 of 88 plans beat the habit; 7.1 % median error on air exchange](docs/img/writeup/sash-5-scorecard.png)
 
 ![Where SASH called a comparison the true gap was 8.40; where it held back, 1.45](docs/img/writeup/sash-4-gate.png)
 
@@ -208,8 +209,8 @@ physics. Full results in `docs/BENCHMARK.md` and `bench/results/`.
 |---|---|
 | Air exchange rate recovered to | 7.1% median relative error |
 | Street coupling recovered to | 1.06 ug/m3 per event/min median absolute error |
-| Recommendations that really did beat the household's habit | 68 of 87 |
-| Median realised saving | 37.5% |
+| Recommendations that really did beat the household's habit | 69 of 88 |
+| Median realised saving | 45.9% |
 | Moments just after a meal at which SASH said "air now" | 187 of 192 |
 | Days from linking until every window is measured, median | 40 on habit, 11 guided |
 | False claims on 40 households whose openings are identical | 2, at alpha = 0.05 |
@@ -277,7 +278,7 @@ simulator/       A Ring account: ground-truth physics, the documented endpoints,
                  and a replay through the real ingest path
 infra/           The SAM template and the table seeder
 bench/           The benchmark, the onboarding benchmark, and their results
-tests/           165 tests, including Ring's own reference payloads verbatim
+tests/           166 tests, including Ring's own reference payloads verbatim
 docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK, AWS,
                  FRICTION_LOG, PRODUCT_FEEDBACK, DEMO_SCRIPT, JUDGE
 ```

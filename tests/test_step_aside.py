@@ -164,3 +164,16 @@ def test_cooking_hours_are_read_off_the_combustion_channel(short_rows):
     # The demo household cooks around 12:24 and 19:36.
     assert hours, "the demo household cooks twice a day"
     assert any(abs(h - 19) <= 1 for h in hours)
+
+
+def test_a_night_with_the_windows_shut_is_not_overdue(fitted):
+    """Overdue is judged over a day, so an ordinary morning does not trip it."""
+    _params, _result, rows, model, _index = fitted
+    last = rows[-1].t1
+    mornings = [last - k * 86400.0 - (last % 86400.0) + 9 * 3600.0 for k in range(1, 21)]
+    levels = [
+        planner.demand([iv for iv in rows if iv.t1 <= now], model, now).level
+        for now in mornings
+    ]
+    # A twelve-hour window called 9 of these 20 mornings overdue.
+    assert levels.count("overdue") <= 3
