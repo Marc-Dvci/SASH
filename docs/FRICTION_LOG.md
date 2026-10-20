@@ -26,15 +26,20 @@ link.
 **Actual.** The Sensors section states that webhook delivery is the only source
 of sensor event data, and the Event History reference states that camera
 results are time-gated to events after the household granted consent. So a new
-integration's record starts at link time on both surfaces. SASH needs roughly
-30 to 60 days of airings before it will report an opening, and all of that wait
-is this.
+integration's record starts at link time on both surfaces. Measured on 24
+simulated homes left to their habit, SASH reached a first plan after a median
+of 18 days and had every window measured after 40, and all of that wait is
+this.
 
 **Severity.** High. It sets the time-to-value of every sensor integration.
 
-**Workaround.** SASH shows each opening's own reason for not being reported yet
-("this opening needs 6 more airings with the carbon-monoxide channel above its
-floor") rather than a spinner, and `sash live` polls from the first minute.
+**Workaround.** SASH turns the wait into a calibration. From the first day it
+asks for the airings its reporting gate needs, one window at a time, with
+progress ("After you cook, open the Courtyard window for 30 minutes with the
+other windows shut. 2 of 6 readings after cooking"), and `sash live` polls from
+the first minute. On the same 24 homes, following those steps with probability
+0.6 brought the medians to 9 days for a first plan and 11 for every window
+(`bench/onboarding.py`).
 
 **Suggestion.** Extend `/v1/history/devices/{id}/events` to sensor device
 families, and let the consent screen offer the household the choice of sharing

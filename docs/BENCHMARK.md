@@ -5,7 +5,8 @@ across households it has never seen.
 
 `sash bench` simulates households SASH has never seen, with different physics and
 different habits, hands it nothing but the streams a Ring account would deliver,
-and scores five things it is possible to be wrong about. The scoring is against
+and scores six things it is possible to be wrong about. A second harness,
+`bench/onboarding.py`, measures how long a new household waits (section 7). The scoring is against
 `simulator/home.py`, which is a single-zone mass balance on a one-minute grid.
 SASH never sees any of it.
 
@@ -74,13 +75,16 @@ cooking. Neither trajectory is one SASH fitted.
 
 | | |
 |---|---|
-| Recommendations that really cost less than the habit | **71 of 94** (75.5%) |
-| Median realised saving | **44.5%** |
-| Median forecast saving | 50.7% |
-| Restricted to homes whose openings are distinguishable at all | **22 of 27** (81.5%), median realised saving **65.2%** |
+| Recommendations that really cost less than the habit | **68 of 87** (78.2%) |
+| Median realised saving | **37.5%** |
+| Median forecast saving | 50.9% |
+| Restricted to homes whose openings are distinguishable at all | **22 of 27** (81.5%), median realised saving **46.4%** |
 
-The forecast saving slightly over-states the realised one, which is the direction
-to expect from a selected maximum.
+These are with the step-aside rules of section 6 in force, which sometimes make
+a household air sooner than the cheapest plan would. Before the rules the same
+command gave 71 of 94 and a median realised saving of 44.5%. The forecast saving
+over-states the realised one, which is the direction to expect from a selected
+maximum.
 
 ## 4. False claims on openings that are identical
 
@@ -135,6 +139,53 @@ on the same day**. The regional background, the day's weather, and the level the
 flat happens to be sitting at are common to both sides of that comparison and
 cancel in the difference. The decision card leads with the comparison and reports
 the absolute figure with its interval underneath, in that order, deliberately.
+
+## 6. Stepping aside
+
+Particulate is not the only reason to air, so four rules come before the search:
+no plan at a carbon-monoxide alert, "air now" within 30 minutes when something
+in the flat has just fouled the air or humidity is at 70% or more, a three-hour
+look-ahead when the home is overdue, and the full search otherwise
+(`docs/MODEL.md`, section 7). Each moment below is planned twice, with the rules
+and without, and both plans are priced in the simulator.
+
+| | |
+|---|---|
+| Moments ten minutes after a meal | 192 |
+| ... at which SASH recognised the cooking and said "air now" | **187** |
+| ... told to wait more than two hours, without the rules / with them | 0 / **0** |
+| Ordinary decision points at which a rule fired | 42 of 126, all "overdue" |
+| Plans the rules changed | 22 |
+| ... that then cost more street particulate | 12, median +53 ug/m3 x min (replaced plans' median 56) |
+
+On this record the planner already chose "now" after every meal, because a
+dirty room is cleaned by opening it. With less history it does not always: on
+12 homes with 60 days of record, 2 of 96 post-meal plans without the rules said
+to wait more than two hours, one of them eleven, and none with them
+(`bench/results/benchmark_60days.md`, `sash bench --homes 12 --nulls 0 --days 60`).
+
+## 7. The first weeks
+
+A Ring sensor integration has no history to backfill. `bench/onboarding.py`
+runs 24 households twice on the same simulated world for up to 45 days, once on
+their habit and once following SASH's calibration steps with probability 0.6,
+refitting every morning on the readings so far.
+
+```bash
+python bench/onboarding.py --homes 24 --days 45 --comply 0.6
+```
+
+| Days since linking, median | Habit | Guided |
+|---|---|---|
+| First plan (one window measured) | 18 | **9** |
+| Every window measured | 40 | **11** |
+| Homes with every window measured by day 14 / 21 | 1 / 3 of 24 | **20 / 24** of 24 |
+| Homes with a pair of windows called by day 45 | 7 of 24 | 11 of 24 |
+
+Guidance measured every window sooner in all 24 homes, a median of at least 26
+days sooner (a home its habit never finished counts as day 46). The guided
+household followed a median of 0.9 prompted thirty-minute airings a day.
+Results in `bench/results/onboarding.md`.
 
 ---
 

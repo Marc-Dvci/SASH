@@ -234,7 +234,76 @@ what "cheaper in 97% of paired draws" means on the decision card.
 
 ---
 
-## 7. The interval around one airing, and why it is wide
+## 7. When SASH steps aside
+
+Street particulate is not the only reason to open a window. A flat full of
+cooking fumes, a bathroom after a shower or a home that has not been aired all
+day needs air now, and a planner that only minimises what comes in from the
+street would happily hold that airing until the evening. So four rules come
+before the search, in order, and the first that fires is stated on the card:
+
+| Rule | Fires when | What SASH does |
+|---|---|---|
+| Carbon monoxide alert | CO at or above 9 ppm, Ring's own alert level | No plan. "Open the windows now and check anything that burns fuel." |
+| Air now | An indoor emission in the last 45 minutes (section 3), CO above 1 ppm, or humidity at 70 % or more | The airing starts within 30 minutes and is not held to the usual hours. SASH picks the window, not the time. |
+| Overdue | Less than half the household's usual air in the last twelve hours | The search looks three hours ahead instead of twelve. |
+| Plan | Otherwise | The full twelve-hour search above. |
+
+The window is still chosen on particulate under "air now", and that is the right
+criterion: every candidate is sized to deliver the same air changes, so they
+remove the same moisture and the same CO, and differ only in what they bring in
+from the street.
+
+The rules were measured, not assumed. `bench/run_benchmark.py` plans every
+decision point twice, with the rules and without, and prices both in the
+simulator. On 24 homes with 120 days of history, SASH recognised the
+cooking and switched to "air now" at 187 of 192 moments just after a meal. At
+the 126 ordinary decision points a rule fired at 42, all of them "overdue". The
+rules changed 22 plans in all; 12 of those cost more street particulate than
+the plan they replaced, by a median of 53 ug/m3 x min against a median of 56
+for the replaced plan. That is the price of not making an under-aired flat wait,
+and it shows in the decision score: plans that beat the habit went from 71 of 94
+to 68 of 87, and the median realised saving from 44.5 % to 37.5 %.
+
+With less history the planner needs the rule more. On homes with 60 days of
+record, the planner without rules told the household to wait more than two
+hours after a meal at 2 of 96 moments, once for eleven hours; with the rules, at
+none (`bench/results/benchmark_60days.md`).
+
+## 8. The first weeks
+
+A Ring sensor integration has no history to backfill, so every number SASH
+puts on a window is earned from airings after the household links its account.
+Left to its habit, a household earns them slowly, and not because it airs too
+little: it airs through the same window, at the same hours, often while it
+cooks. The reporting gate needs readings taken **after** cooking with only one
+window open (the CO decay of section 2), several separate airings through every
+window, and airings at both busy and quiet times of the street.
+
+So from the first day SASH says what it needs, per window, with progress
+against the gate: "After you cook (usually around 19:00), open the Courtyard
+window for 30 minutes with the other windows shut. 2 of 6 readings after
+cooking." When "air now" fires right after a meal and a window still needs
+those readings, that airing becomes the decision, flagged as a calibration
+airing: it carries no forecast and is not published to the ledger.
+`src/sash/analytics/onboarding.py`.
+
+`bench/onboarding.py` runs 24 simulated homes twice on the same world, once on
+their habit and once following each step with probability 0.6, refitting every
+morning:
+
+| Days since linking, median | Habit | Guided |
+|---|---|---|
+| First plan (one window measured) | 18 | **9** |
+| Every window measured | 40 | **11** |
+| Homes with every window measured by day 21 | 3 of 24 | **24 of 24** |
+
+Guidance was faster on every one of the 24 homes, at a median of 0.9 prompted
+thirty-minute airings a day. Calling a pair of windows takes longer either way,
+because many pairs really are close: by day 45, 11 of 24 guided homes and 7 of
+24 habit homes had one called.
+
+## 9. The interval around one airing, and why it is wide
 
 The prediction interval does not come from the parameter bootstrap. The bootstrap
 knows how uncertain theta and g are; it does not know what next Tuesday's air
@@ -268,7 +337,7 @@ with the comparison and reports the absolute figure with its interval underneath
 
 ---
 
-## 8. Verification: a plan that was written down can be wrong
+## 10. Verification: a plan that was written down can be wrong
 
 Every plan SASH publishes is written into a ledger with its forecast and its
 interval **before** the airing happens. When the window it named has passed, the
@@ -307,7 +376,7 @@ median airing of 682.
 
 ---
 
-## 9. What the claim is
+## 11. What the claim is
 
 - **A comparison between two openings on the same day.** The regional
   background, the weather and the level the flat sits at are common to both

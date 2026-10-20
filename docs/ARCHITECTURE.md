@@ -53,7 +53,8 @@ model or touches the network.
 | `analytics/estimator.py` | Sealed-home baseline, CO tracer decay, the non-negative one-sided incoming fit, the paired block bootstrap. |
 | `analytics/nulls.py` | The permutation test on the coupling gap. |
 | `analytics/activity.py` | The street's weekly rhythm, with outages excluded. |
-| `analytics/planner.py` | Demand, plan search, prediction interval, habit baseline, exploration, and the retrospective verification. |
+| `analytics/planner.py` | Demand, the step-aside rules, plan search, prediction interval, habit baseline, and the retrospective verification. |
+| `analytics/onboarding.py` | The calibration steps a new household sees per window, with its progress against the reporting gate. |
 | `analytics/holdout.py` | The three-slice replay: fit, calibrate the interval, score coverage. |
 | `narrative.py` | Deterministic phrase renderer, with an optional Amazon Bedrock adapter behind the same interface. |
 | `service.py` | `Household`: one cached view feeding every route, invalidated when new data arrives or the device mapping changes. |

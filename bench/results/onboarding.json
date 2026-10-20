@@ -1,0 +1,597 @@
+{
+ "summary": {
+  "days": 45,
+  "habit": {
+   "n": 24,
+   "first_plan_day": {
+    "median": 18.0,
+    "reached": 24,
+    "by_day_7": 1,
+    "by_day_14": 9,
+    "by_day_21": 16,
+    "by_day_30": 20
+   },
+   "all_measured_day": {
+    "median": 39.5,
+    "reached": 15,
+    "by_day_7": 0,
+    "by_day_14": 1,
+    "by_day_21": 3,
+    "by_day_30": 8
+   },
+   "first_call_day": {
+    "median": 46.0,
+    "reached": 7,
+    "by_day_7": 0,
+    "by_day_14": 0,
+    "by_day_21": 1,
+    "by_day_30": 4
+   },
+   "airings_followed_per_day": 0.0
+  },
+  "guided": {
+   "n": 24,
+   "first_plan_day": {
+    "median": 9.0,
+    "reached": 24,
+    "by_day_7": 5,
+    "by_day_14": 23,
+    "by_day_21": 24,
+    "by_day_30": 24
+   },
+   "all_measured_day": {
+    "median": 11.0,
+    "reached": 24,
+    "by_day_7": 0,
+    "by_day_14": 20,
+    "by_day_21": 24,
+    "by_day_30": 24
+   },
+   "first_call_day": {
+    "median": 46.0,
+    "reached": 11,
+    "by_day_7": 0,
+    "by_day_14": 5,
+    "by_day_21": 9,
+    "by_day_30": 10
+   },
+   "airings_followed_per_day": 0.9198717948717949
+  },
+  "paired_days_saved_all_measured": 26.5,
+  "n_guided_faster": 24,
+  "n_guided_slower": 0,
+  "n_paired": 24,
+  "comply": 0.6
+ },
+ "seconds": 816.5,
+ "homes": [
+  {
+   "seed": 1000,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 20,
+   "all_measured_day": 30,
+   "first_call_day": 30,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 7.6
+  },
+  {
+   "seed": 1000,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 5,
+   "all_measured_day": 8,
+   "first_call_day": 17,
+   "steps_shown": 11,
+   "airings_followed": 10,
+   "seconds": 9.9
+  },
+  {
+   "seed": 1001,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 24,
+   "all_measured_day": 42,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 16.8
+  },
+  {
+   "seed": 1001,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 14,
+   "all_measured_day": 15,
+   "first_call_day": null,
+   "steps_shown": 41,
+   "airings_followed": 11,
+   "seconds": 31.3
+  },
+  {
+   "seed": 1002,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 17,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 14.0
+  },
+  {
+   "seed": 1002,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 9,
+   "all_measured_day": 11,
+   "first_call_day": null,
+   "steps_shown": 27,
+   "airings_followed": 10,
+   "seconds": 31.7
+  },
+  {
+   "seed": 1003,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 13,
+   "all_measured_day": 27,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 26.0
+  },
+  {
+   "seed": 1003,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 6,
+   "all_measured_day": 8,
+   "first_call_day": null,
+   "steps_shown": 12,
+   "airings_followed": 7,
+   "seconds": 34.5
+  },
+  {
+   "seed": 1004,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 27,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 15.9
+  },
+  {
+   "seed": 1004,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 14,
+   "all_measured_day": 15,
+   "first_call_day": 18,
+   "steps_shown": 41,
+   "airings_followed": 16,
+   "seconds": 14.2
+  },
+  {
+   "seed": 1005,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 11,
+   "all_measured_day": 17,
+   "first_call_day": 17,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 4.7
+  },
+  {
+   "seed": 1005,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 9,
+   "all_measured_day": 9,
+   "first_call_day": 9,
+   "steps_shown": 16,
+   "airings_followed": 9,
+   "seconds": 7.7
+  },
+  {
+   "seed": 1006,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 14,
+   "all_measured_day": 23,
+   "first_call_day": 41,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 18.7
+  },
+  {
+   "seed": 1006,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 11,
+   "all_measured_day": 13,
+   "first_call_day": null,
+   "steps_shown": 33,
+   "airings_followed": 12,
+   "seconds": 31.2
+  },
+  {
+   "seed": 1007,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 22,
+   "all_measured_day": 32,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 19.0
+  },
+  {
+   "seed": 1007,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 10,
+   "all_measured_day": 14,
+   "first_call_day": null,
+   "steps_shown": 22,
+   "airings_followed": 9,
+   "seconds": 28.2
+  },
+  {
+   "seed": 1008,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 12,
+   "all_measured_day": 36,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 18.3
+  },
+  {
+   "seed": 1008,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 9,
+   "all_measured_day": 10,
+   "first_call_day": null,
+   "steps_shown": 17,
+   "airings_followed": 7,
+   "seconds": 25.5
+  },
+  {
+   "seed": 1009,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 40,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 16.6
+  },
+  {
+   "seed": 1009,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 15,
+   "all_measured_day": 18,
+   "first_call_day": 21,
+   "steps_shown": 46,
+   "airings_followed": 17,
+   "seconds": 16.0
+  },
+  {
+   "seed": 1010,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 20,
+   "all_measured_day": 41,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 18.1
+  },
+  {
+   "seed": 1010,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 12,
+   "all_measured_day": 13,
+   "first_call_day": 13,
+   "steps_shown": 35,
+   "airings_followed": 13,
+   "seconds": 8.6
+  },
+  {
+   "seed": 1011,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 32,
+   "all_measured_day": 34,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 16.9
+  },
+  {
+   "seed": 1011,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 7,
+   "all_measured_day": 9,
+   "first_call_day": null,
+   "steps_shown": 14,
+   "airings_followed": 8,
+   "seconds": 26.6
+  },
+  {
+   "seed": 1012,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 18,
+   "all_measured_day": 27,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 19.0
+  },
+  {
+   "seed": 1012,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 9,
+   "all_measured_day": 11,
+   "first_call_day": null,
+   "steps_shown": 26,
+   "airings_followed": 12,
+   "seconds": 26.6
+  },
+  {
+   "seed": 1013,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 20,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 10.9
+  },
+  {
+   "seed": 1013,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 8,
+   "all_measured_day": 9,
+   "first_call_day": 45,
+   "steps_shown": 15,
+   "airings_followed": 8,
+   "seconds": 22.4
+  },
+  {
+   "seed": 1014,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 10,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 11.2
+  },
+  {
+   "seed": 1014,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 8,
+   "all_measured_day": 11,
+   "first_call_day": null,
+   "steps_shown": 26,
+   "airings_followed": 12,
+   "seconds": 25.5
+  },
+  {
+   "seed": 1015,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 14,
+   "all_measured_day": 30,
+   "first_call_day": 30,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 6.7
+  },
+  {
+   "seed": 1015,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 9,
+   "all_measured_day": 13,
+   "first_call_day": 19,
+   "steps_shown": 29,
+   "airings_followed": 12,
+   "seconds": 10.3
+  },
+  {
+   "seed": 1016,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 11,
+   "all_measured_day": 38,
+   "first_call_day": 44,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 15.1
+  },
+  {
+   "seed": 1016,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 10,
+   "all_measured_day": 12,
+   "first_call_day": null,
+   "steps_shown": 30,
+   "airings_followed": 11,
+   "seconds": 29.9
+  },
+  {
+   "seed": 1017,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 12,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 11.8
+  },
+  {
+   "seed": 1017,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 7,
+   "all_measured_day": 10,
+   "first_call_day": 10,
+   "steps_shown": 22,
+   "airings_followed": 9,
+   "seconds": 6.7
+  },
+  {
+   "seed": 1018,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 23,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 10.9
+  },
+  {
+   "seed": 1018,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 12,
+   "all_measured_day": 13,
+   "first_call_day": 28,
+   "steps_shown": 34,
+   "airings_followed": 11,
+   "seconds": 15.2
+  },
+  {
+   "seed": 1019,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 6,
+   "all_measured_day": 10,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 15.4
+  },
+  {
+   "seed": 1019,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 5,
+   "all_measured_day": 8,
+   "first_call_day": null,
+   "steps_shown": 11,
+   "airings_followed": 8,
+   "seconds": 19.4
+  },
+  {
+   "seed": 1020,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 18,
+   "all_measured_day": 21,
+   "first_call_day": 24,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 5.5
+  },
+  {
+   "seed": 1020,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 10,
+   "all_measured_day": 13,
+   "first_call_day": null,
+   "steps_shown": 32,
+   "airings_followed": 13,
+   "seconds": 24.1
+  },
+  {
+   "seed": 1021,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 17,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 10.9
+  },
+  {
+   "seed": 1021,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 8,
+   "all_measured_day": 9,
+   "first_call_day": 9,
+   "steps_shown": 15,
+   "airings_followed": 5,
+   "seconds": 4.4
+  },
+  {
+   "seed": 1022,
+   "policy": "habit",
+   "n_openings": 3,
+   "first_plan_day": 32,
+   "all_measured_day": null,
+   "first_call_day": null,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 12.3
+  },
+  {
+   "seed": 1022,
+   "policy": "guided",
+   "n_openings": 3,
+   "first_plan_day": 14,
+   "all_measured_day": 16,
+   "first_call_day": null,
+   "steps_shown": 43,
+   "airings_followed": 14,
+   "seconds": 26.0
+  },
+  {
+   "seed": 1023,
+   "policy": "habit",
+   "n_openings": 2,
+   "first_plan_day": 33,
+   "all_measured_day": 44,
+   "first_call_day": 44,
+   "steps_shown": 0,
+   "airings_followed": 0,
+   "seconds": 11.7
+  },
+  {
+   "seed": 1023,
+   "policy": "guided",
+   "n_openings": 2,
+   "first_plan_day": 11,
+   "all_measured_day": 11,
+   "first_call_day": 11,
+   "steps_shown": 20,
+   "airings_followed": 13,
+   "seconds": 6.6
+  }
+ ]
+}

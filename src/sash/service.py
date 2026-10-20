@@ -220,7 +220,9 @@ class Household:
         """Publish the current best plan into the ledger, so it can be scored."""
         rec = self.recommendation()
         best = rec.get("best")
-        if not best:
+        # A calibration airing is a measurement, not a forecast: there is no
+        # interval to hold it to.
+        if not best or best.get("exploration"):
             return None
         existing = [
             p

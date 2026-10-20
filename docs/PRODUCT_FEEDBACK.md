@@ -90,10 +90,11 @@ Twelve entries with severities, steps and suggestions are in
 
 1. **A sensor integration starts blind.** Webhooks are the only source of
    sensor events, and camera history is gated to the consent date, so a new
-   integration's record begins at link time. SASH needs 30 to 60 days of a
-   household's airings before it will report an opening, and every day of that
-   wait exists because of this gap. It sets the time-to-value of the entire
-   sensor scope.
+   integration's record begins at link time. On its habit, a simulated
+   household waited a median of 18 days for SASH's first plan and 40 for every
+   window to be measured. SASH's guided calibration brings that to 9 and 11
+   days, and every one of those days exists because of this gap. It sets the
+   time-to-value of the entire sensor scope.
 
 2. **The averaging window of an Air Quality Monitor reading is undocumented.**
    Instantaneous, or a mean over the preceding cadence? The two imply covariate

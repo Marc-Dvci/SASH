@@ -23,9 +23,22 @@ the realised intake is computed from the readings that arrived and compared with
 the interval the plan was published with. The ledger of those comparisons is
 part of the product: a recommendation is worth what its track record says.
 
-An honest limit, stated in the UI as well as here: the forecast of street
-activity is this street's own weekly habit, not a prediction of the street. A
-road closure or a delivery surge will not be in it.
+**Street particulate is not the only reason to open a window, and when it is
+not the main one SASH steps aside.** Four rules come before the search, in
+this order, and each is stated on the card when it fires:
+
+1. Carbon monoxide at or above Ring's own 9 ppm alert: no plan at all. That is
+   a safety event, not a scheduling question.
+2. Something in the flat is fouling the air now (cooking, a shower, a candle,
+   recognised by :mod:`sash.analytics.sources`), carbon monoxide is above its
+   usual level, or humidity is at 70 % or more: the airing starts within half an
+   hour. SASH still picks the window, never the time.
+3. The home has had less than half its usual air in the last twelve hours: the
+   search looks three hours ahead, not twelve.
+4. Otherwise, the full twelve-hour search.
+
+The forecast of street activity is this street's own weekly habit, not a
+prediction of the street. A road closure or a delivery surge will not be in it.
 """
 
 from __future__ import annotations
@@ -38,8 +51,10 @@ from typing import Sequence
 
 import numpy as np
 
+from ..config import CO_ALERT_PPM
+from . import onboarding
 from .activity import ActivityIndex
-from .estimator import HomeModel, integrate
+from .estimator import CO_OUTDOOR_PPM, CO_TRACER_FLOOR_PPM, HomeModel, integrate
 from .intervals import Interval
 
 #: How far ahead the planner looks, in hours.
@@ -86,6 +101,31 @@ UNCALIBRATED_K = 4.0
 
 #: Smallest interval shape, in ug/m3 x minutes.
 INTERVAL_FLOOR_ABS = 1.0
+
+#: When the reason to air is inside the flat, the airing starts within this
+#: many minutes. Without the rule, right after a meal the cheapest plan is
+#: usually "now" anyway, because a dirty room is cleaned by opening it -- but
+#: not always: on benchmark homes with 60 days of history, 2 of 96 post-meal
+#: plans said to wait more than two hours, one of them eleven. The rule makes
+#: "now" a guarantee rather than an outcome.
+CLEAR_WITHIN_MIN = 30.0
+
+#: An indoor emission counts as current if it was running in a reading that
+#: ended at most this long ago.
+INDOOR_RECENT_MIN = 45.0
+
+#: Carbon monoxide above this, ppm, is a reason to air now. Outdoor CO on a
+#: residential street sits near 0.05 ppm and a sealed flat returns to it within
+#: hours, so a reading this high means something is still burning or has just
+#: stopped.
+CO_CLEAR_PPM = 1.0
+
+#: Relative humidity at which airing stops being optional, %. Sustained indoor
+#: humidity at this level is where condensation and mould on cold walls begin.
+HUMIDITY_CLEAR_PCT = 70.0
+
+#: How far ahead SASH looks when the home is overdue, in hours.
+OVERDUE_WITHIN_H = 3.0
 
 
 def interval_scale(c_star: float, c0: float, duration_min: float) -> float:
@@ -175,9 +215,18 @@ class Recommendation:
     n_considered: int = 0
     n_airings_observed: int = 0
     habit_hours: float = 24.0
+    mode: str = "plan"  # plan | overdue | clear_now | safety
+    mode_reason: str = ""
+    calibration: list[onboarding.Step] = field(default_factory=list)
+    calibration_summary: str = ""
 
     def as_dict(self) -> dict:
         return {
+            "mode": self.mode,
+            "mode_reason": self.mode_reason,
+            # Not "calibration": the service puts the interval calibration there.
+            "onboarding": [s.as_dict() for s in self.calibration],
+            "onboarding_summary": self.calibration_summary,
             "best": self.best.as_dict() if self.best else None,
             "alternatives": [p.as_dict() for p in self.alternatives],
             "habit": self.habit.as_dict() if self.habit else None,
@@ -251,7 +300,7 @@ def demand(
                     f"humidity {humidity:.0f}% is above the {high:.0f}% this home "
                     "sits below three quarters of the time"
                 )
-    if co is not None and co > 1.0:
+    if co is not None and co > CO_CLEAR_PPM:
         drivers.append(f"CO {co:.1f} ppm is above its usual level")
 
     level = "none"
@@ -268,6 +317,65 @@ def demand(
         co=co,
         level=level,
     )
+
+
+def _carries_tracer(co: float | None) -> bool:
+    """True when the CO channel is high enough to start a usable decay."""
+    return co is not None and co - CO_OUTDOOR_PPM > CO_TRACER_FLOOR_PPM
+
+
+def step_aside(
+    intervals: Sequence[Interval],
+    need: Demand,
+    now: float,
+    *,
+    humidity: float | None = None,
+    co: float | None = None,
+) -> tuple[str, str, float]:
+    """Which rule governs this decision: ``(mode, reason, look-ahead hours)``.
+
+    Minimising street particulate is the right objective only while nothing
+    more pressing is going on. The rules are ordered by how pressing, and the
+    first that fires wins. The reason is a sentence the card shows as it is.
+    """
+    if co is not None and co >= CO_ALERT_PPM:
+        return (
+            "safety",
+            f"Carbon monoxide is at {co:.1f} ppm, at or above the {CO_ALERT_PPM:.0f} ppm "
+            "at which Ring's monitor alerts. Open the windows now and check anything "
+            "that burns fuel. SASH makes no plan while it is this high.",
+            0.0,
+        )
+
+    why: list[str] = []
+    recent = [iv for iv in intervals if iv.t1 >= now - INDOOR_RECENT_MIN * 60.0]
+    if any(iv.indoor_source for iv in recent):
+        why.append(
+            "the air still carries cooking fumes"
+            if _carries_tracer(co)
+            else "something inside the flat has just been adding to the air"
+        )
+    if co is not None and co > CO_CLEAR_PPM:
+        why.append(f"carbon monoxide is at {co:.1f} ppm, above its usual level")
+    if humidity is not None and humidity >= HUMIDITY_CLEAR_PCT:
+        why.append(f"humidity is at {humidity:.0f}%")
+    if why:
+        return (
+            "clear_now",
+            "Air now: " + "; ".join(why) + ". When the reason to air is inside the "
+            "flat, SASH picks the window but not the time.",
+            CLEAR_WITHIN_MIN / 60.0,
+        )
+
+    if need.level == "overdue":
+        return (
+            "overdue",
+            f"This home has had {need.delivered_12h:.1f} of its usual "
+            f"{need.target_exchanges:.1f} air changes in twelve hours, so SASH looks "
+            f"{OVERDUE_WITHIN_H:.0f} hours ahead rather than twelve.",
+            OVERDUE_WITHIN_H,
+        )
+    return "plan", "", HORIZON_H
 
 
 # --- when this household actually airs ---------------------------------------
@@ -387,19 +495,67 @@ def recommend(
     explore: bool = True,
     interval_k: float = UNCALIBRATED_K,
     seed: int = 3,
+    rules: bool = True,
 ) -> Recommendation:
-    """Rank every (opening, start time) pair over the horizon."""
+    """Rank every (opening, start time) pair over the horizon.
+
+    ``explore`` lets a calibration airing take the place of the plan, and
+    ``rules=False`` switches off :func:`step_aside` so the benchmark can measure
+    what the rules cost.
+    """
     need = demand(intervals, model, now, humidity=humidity, co=co)
-    usable = [o for o in model.openings.values() if o.reported and o.exchange > 1e-3]
-    if not usable:
+    if rules:
+        mode, mode_reason, rule_h = step_aside(
+            intervals, need, now, humidity=humidity, co=co
+        )
+        horizon_h = min(horizon_h, rule_h)
+    else:
+        mode, mode_reason = "plan", ""
+    calibration = onboarding.steps(model, intervals, activity, now)
+    calibration_summary = onboarding.describe(model, calibration)
+
+    def bare(reason: str, best: Plan | None = None) -> Recommendation:
         return Recommendation(
-            None,
+            best,
             [],
             None,
             need,
             None,
+            reason,
+            mode=mode,
+            mode_reason=mode_reason,
+            calibration=calibration,
+            calibration_summary=calibration_summary,
+        )
+
+    if mode == "safety":
+        return bare(mode_reason)
+
+    # Right after cooking is the one moment an airing measures a window's air
+    # exchange, because the fumes are the tracer. If a window still needs that
+    # measurement and the CO is there to follow, this is the airing to ask for.
+    # A candle or a shower calls for air too, but leaves no tracer.
+    tracer_step = next((s for s in calibration if s.kind == "after_cooking"), None)
+    calibrating = (
+        _calibration_plan(tracer_step, now, activity)
+        if explore
+        and mode == "clear_now"
+        and tracer_step is not None
+        and _carries_tracer(co)
+        else None
+    )
+
+    usable = [o for o in model.openings.values() if o.reported and o.exchange > 1e-3]
+    if not usable:
+        if calibrating is not None:
+            return bare(mode_reason, calibrating)
+        if mode == "clear_now":
+            return bare(
+                mode_reason + " Any window will do: SASH cannot rank them yet."
+            )
+        return bare(
             "SASH has not yet measured any opening well enough to rank them. "
-            "It needs more airings at different times of day.",
+            "The airings below are the quickest way there."
         )
 
     c_star = model.baseline.recent_floor
@@ -423,7 +579,11 @@ def recommend(
         steps = int(horizon_h * 60 // START_STEP_MIN)
         for k in range(steps):
             start_at = now + k * START_STEP_MIN * 60.0
-            if not within_habit((start_at % 86400.0) / 3600.0, hours):
+            # An airing the flat needs now is not held to the household's usual
+            # hours: people cook at unusual hours too.
+            if mode != "clear_now" and not within_habit(
+                (start_at % 86400.0) / 3600.0, hours
+            ):
                 continue
             intake, exchanges = _forecast_intake(
                 model, activity, current_pm, c_star, now, est.opening_id, start_at, duration
@@ -448,17 +608,13 @@ def recommend(
             )
 
     if not candidates:
-        return Recommendation(
-            None,
-            [],
-            None,
-            need,
-            None,
-            "Nothing in the next twelve hours falls in the hours this household "
-            "actually airs. SASH will have a plan by then.",
-            n_airings_observed=int(hours.size),
-            habit_hours=offered_hours,
+        rec = bare(
+            f"Nothing in the next {horizon_h:.0f} hours falls in the hours this "
+            "household actually airs. SASH will have a plan by then."
         )
+        rec.n_airings_observed = int(hours.size)
+        rec.habit_hours = offered_hours
+        return rec
 
     candidates.sort(key=lambda p: p.pred_intake)
     cheapest = candidates[0]
@@ -489,13 +645,18 @@ def recommend(
     if habit and habit.pred_intake > 1e-6:
         saving = 100.0 * (habit.pred_intake - best.pred_intake) / habit.pred_intake
 
-    reason = _explain(best, habit, need, activity)
+    reason = _explain(best, habit, need, activity, mode_reason)
 
-    if explore:
-        best = _maybe_explore(best, candidates, model, rng) or best
+    if calibrating is not None:
+        # The measurement takes the place of the plan, and says so. The plan it
+        # replaced stays in the alternatives.
+        alternatives.insert(0, best)
+        best, saving, reason = calibrating, None, mode_reason
 
-    comparison = _compare_plans(
-        model, activity, best, habit, now, current_pm, c_star, draws, rng
+    comparison = (
+        (None, None, None, 0)
+        if best.exploration
+        else _compare_plans(model, activity, best, habit, now, current_pm, c_star, draws, rng)
     )
 
     return Recommendation(
@@ -512,6 +673,10 @@ def recommend(
         n_considered=len(candidates),
         n_airings_observed=int(hours.size),
         habit_hours=offered_hours,
+        mode=mode,
+        mode_reason=mode_reason,
+        calibration=calibration,
+        calibration_summary=calibration_summary,
     )
 
 
@@ -600,30 +765,34 @@ def _compare_plans(
     )
 
 
-def _maybe_explore(
-    best: Plan, candidates: list[Plan], model: HomeModel, rng: np.random.Generator
-) -> Plan | None:
-    """Occasionally propose a less-observed opening, and say so.
+def _calibration_plan(
+    step: onboarding.Step, now: float, activity: ActivityIndex
+) -> Plan:
+    """A calibration airing, shaped as a plan so the card can show it.
 
     Habit is what makes this problem hard: a household that only ever opens one
-    window gives SASH nothing to compare it against. Sending some airings
-    through the other opening is how the comparison gets made, so the
-    recommendation is also the experiment. It is never silent about it.
+    window gives SASH nothing to compare it against. Sending an airing through
+    the other window is how the comparison gets made, so the recommendation is
+    also the experiment. It is never silent about it, it carries no forecast,
+    because the window it measures has none yet, and it is not published to the
+    ledger.
     """
-    least = min(model.openings.values(), key=lambda o: o.n_episodes)
-    if least.opening_id == best.opening_id or least.reported:
-        return None
-    if rng.random() > 0.25:
-        return None
-    for plan in candidates:
-        if plan.opening_id == least.opening_id:
-            plan.exploration = True
-            plan.note = (
-                f"SASH has only seen {least.n_episodes} airings through the "
-                f"{least.label}, so it cannot compare it yet. This one is to find out."
-            )
-            return plan
-    return None
+    expected = activity.expected(now)
+    return Plan(
+        plan_id=f"calibration-{uuid.uuid4().hex[:8]}",
+        opening_id=step.opening_id,
+        opening_label=step.opening_label,
+        start_at=now,
+        duration_min=step.duration_min,
+        pred_exchanges=0.0,
+        pred_intake=0.0,
+        pred_intake_lo=0.0,
+        pred_intake_hi=0.0,
+        expected_activity=expected,
+        activity_band=activity.band(expected),
+        exploration=True,
+        note=step.text,
+    )
 
 
 def _habit_plan(
@@ -700,7 +869,13 @@ def _habit_plan(
     )
 
 
-def _explain(best: Plan, habit: Plan | None, need: Demand, activity: ActivityIndex) -> str:
+def _explain(
+    best: Plan,
+    habit: Plan | None,
+    need: Demand,
+    activity: ActivityIndex,
+    mode_reason: str = "",
+) -> str:
     when = dt.datetime.fromtimestamp(best.start_at, tz=dt.timezone.utc).strftime("%H:%M")
     if best.activity_band in ("high", "very high"):
         street = (
@@ -717,7 +892,9 @@ def _explain(best: Plan, habit: Plan | None, need: Demand, activity: ActivityInd
             f"The {habit.opening_label}, which this home usually uses, is forecast to "
             f"admit {habit.pred_intake:.0f} against {best.pred_intake:.0f} ug/m3 x min."
         )
-    if need.drivers:
+    if mode_reason:
+        parts.insert(0, mode_reason)
+    elif need.drivers:
         parts.append("Airing is due because " + "; ".join(need.drivers) + ".")
     return " ".join(parts)
 

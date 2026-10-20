@@ -736,6 +736,79 @@ def follow_plan(
     return rebuilt
 
 
+def household_airs(
+    result: SimResult,
+    params: HomeParams,
+    airings: list[tuple[str, float, float]],
+    *,
+    seed: int = 4243,
+) -> int:
+    """The household makes these airings instead of what it would have opened.
+
+    Each airing is ``(opening_id, start_at, duration_min)``. For its span the
+    named opening is open and every other opening is shut, because that is what
+    a calibration step asks for. The home is re-integrated from the first of
+    them, on the outside world already drawn, exactly as :func:`follow_plan`
+    does for one plan. Returns the number of readings rebuilt.
+    """
+    if not airings:
+        return 0
+    first = None
+    for opening_id, start_at, duration_min in airings:
+        if opening_id not in result.open_mask:
+            raise KeyError(opening_id)
+        i0 = int(round((start_at - result.t0) / 60.0))
+        i1 = min(result.minutes, i0 + int(round(duration_min)))
+        if i0 < 0 or i1 <= i0:
+            continue
+        for oid, mask in result.open_mask.items():
+            mask[i0:i1] = oid == opening_id
+        first = i0 if first is None else min(first, i0)
+    if first is None:
+        return 0
+
+    for oid, mask in result.open_mask.items():
+        spans: list[tuple[float, float]] = []
+        i = 0
+        while i < result.minutes:
+            if mask[i]:
+                begin = i
+                while i < result.minutes and mask[i]:
+                    i += 1
+                spans.append((result.t0 + begin * 60.0, result.t0 + i * 60.0))
+            else:
+                i += 1
+        result.open_intervals[oid] = spans
+
+    integrate_home(
+        params,
+        result.open_mask,
+        result.background,
+        result.activity,
+        result.indoor_source,
+        result.source_moisture,
+        result.source_co,
+        result.temp_out,
+        result.vp_out,
+        result.pm_in,
+        result.rh_in,
+        result.temp_in,
+        result.co_in,
+        start=first + 1,
+    )
+
+    start_at = result.time_at(first)
+    rng = np.random.default_rng(seed + first)
+    rebuilt = 0
+    for row in result.aqm_reports:
+        if row["reported_at"] <= start_at:
+            continue
+        minute = int(round((row["reported_at"] - result.t0) / 60.0))
+        row.update(aqm_report(result, minute, rng))
+        rebuilt += 1
+    return rebuilt
+
+
 def _outages(
     minutes: int, t0: float, expected: float, rng: np.random.Generator, lo: int, hi: int
 ) -> list[tuple[float, float]]:

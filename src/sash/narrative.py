@@ -55,6 +55,7 @@ class Facts:
     activity_band: str
     drivers: list[str]
     exploration: bool
+    rule: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -74,6 +75,7 @@ class Facts:
             "street_activity_band": self.activity_band,
             "why_now": self.drivers,
             "is_exploration": self.exploration,
+            "rule_in_force": self.rule,
         }
 
 
@@ -98,6 +100,7 @@ def facts_from(recommendation: dict[str, Any], tz_offset_h: float = 0.0) -> Fact
         activity_band=best["activity_band"],
         drivers=recommendation.get("demand", {}).get("drivers", []),
         exploration=bool(best.get("exploration")),
+        rule=recommendation.get("mode_reason") or "",
     )
 
 
@@ -120,10 +123,14 @@ def render(facts: Facts) -> str:
     )
     parts = [lead, cost]
     if facts.exploration:
-        parts.append(
-            "This one is a deliberate experiment: SASH has not seen this opening "
-            "often enough to compare it, and the only way to find out is to use it."
-        )
+        # A calibration airing has no forecast to quote, and the street does
+        # not enter into it.
+        parts = [
+            f"Open the {facts.opening} at {facts.start_local} for "
+            f"{facts.duration_min:.0f} minutes, with the other windows shut.",
+            "This airing is also a measurement: SASH has not seen this window "
+            "often enough after cooking to put a number on it.",
+        ]
     elif (
         facts.habit_opening
         and facts.habit_opening != facts.opening
@@ -141,7 +148,9 @@ def render(facts: Facts) -> str:
                 f"{facts.p_better * 100:.0f} per cent of paired draws"
             )
         parts.append(sentence + ".")
-    if facts.drivers:
+    if facts.rule:
+        parts.insert(0, facts.rule)
+    elif facts.drivers:
         parts.append("Airing is due because " + "; ".join(facts.drivers) + ".")
     return " ".join(parts)
 

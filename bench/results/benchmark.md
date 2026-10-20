@@ -35,16 +35,32 @@ opening it named as cheaper really was cheaper in
 
 ## Decision quality
 
-71 of 94 recommendations (75.5%) really did cost
+68 of 87 recommendations (78.2%) really did cost
 less than the household's own habitual airing, measured by re-integrating the flat
 in the simulator on the record that actually happened. Median realised saving
-44.5%, against a median forecast saving of
-50.7%.
+37.5%, against a median forecast saving of
+50.9%.
 
 Restricted to the households where the openings are distinguishable at all:
 **22 of 27**
 (81.5%), median realised saving
-**65.2%**.
+**46.4%**.
+
+## Stepping aside
+
+At 192 moments ten minutes after a household stopped cooking, the
+planner without its step-aside rules told the household to wait more than two
+hours in **0** (longest 0.2 h).
+With the rules: **0** (longest 0.0 h).
+SASH recognised the cooking and switched to "air now" at
+187 of the 192.
+
+At the 126 ordinary decision points a rule fired at
+42. Across both kinds of moment the rules changed
+22 plans; 12 of those cost more street
+particulate than the plan they replaced, median difference
+53.3 ug/m3 x min (the replaced plans' median
+cost: 55.5).
 
 ## False claims on openings that are identical
 
@@ -66,9 +82,9 @@ afterwards from the readings, and compared with the simulator's own answer.
 | Median bias of that measurement | -39.3 |
 | Coverage of the 90% interval | 88.6% |
 
-One airing is a small signal to price in advance and to measure afterwards.
-That is why the product's claim is a comparison between two openings on the
-same day: the terms that make a single airing uncertain are common to both
-sides of it.
+One airing is genuinely hard to price, and it is hard to measure afterwards as
+well. That is why the product's claim is a comparison between two openings on
+the same day rather than an absolute number: the terms that make a single
+airing uncertain are common to both sides of it.
 
-Ran in 445 s.
+Ran in 501 s.

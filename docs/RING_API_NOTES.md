@@ -143,9 +143,11 @@ events after the household granted consent. Sensors have no history endpoint,
 which the documentation states, so a sensor integration's record starts at link
 time.
 
-This is a product constraint: SASH needs roughly 30 to 60 days of a household's
-airings before it will report an opening at all, and the UI states each
-opening's own reason rather than showing a spinner. Friction log entry 1.
+This is a product constraint. On its habit, a simulated household waits a
+median of 18 days for SASH's first plan and 40 for every window to be measured.
+So from the first day SASH asks for the airings it needs, window by window,
+with progress, which brings the medians to 9 and 11 days
+(`bench/onboarding.py`). Friction log entry 1.
 
 ---
 

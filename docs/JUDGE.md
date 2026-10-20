@@ -72,8 +72,9 @@ motion is delivered by Ring and discarded at the door: 10,300 dropped against
 ## Four minutes: check the work
 
 ```bash
-pytest                                            # 155 tests
+pytest                                            # 165 tests
 sash bench --homes 24 --nulls 40 --days 120       # about 8 minutes
+python bench/onboarding.py --homes 24 --days 45   # about 14 minutes
 ```
 
 The benchmark scores against `simulator/home.py`, a single-zone mass balance SASH
@@ -86,7 +87,9 @@ to the shipping parsers.
 | Air exchange rate recovered to | 7.1% median relative error |
 | Pairs called correctly | 14 of 15 |
 | False claims on 40 identical-opening homes | 2 (5.0%) |
-| Recommendations that beat the household's habit | 71 of 94, median saving 44.5% |
+| Recommendations that beat the household's habit | 68 of 87, median saving 37.5% |
+| Moments just after a meal at which SASH said "air now" | 187 of 192 |
+| Days until every window is measured, median | 40 on habit, 11 guided |
 | Coverage of the 90% interval, 3,517 held-out airings | 88.6% |
 
 A single airing has a median forecast error of 52% of its true cost, and the
@@ -107,5 +110,7 @@ on the same day, where those terms cancel.
 | How does it refuse to over-claim? | `analytics/nulls.py` |
 | How is a plan scored afterwards? | `planner.realised_intake`, `planner.verify` |
 | Is the media refusal real? | `ring/client.py:ALLOWED_PATHS`, `tests/test_no_media.py` |
+| When does it stop optimising for the street? | `planner.step_aside`, `tests/test_step_aside.py` |
+| What does a new household see? | `analytics/onboarding.py`, `bench/onboarding.py` |
 | Where is the evidence? | `bench/run_benchmark.py`, `bench/results/` |
 | What runs on AWS? | `infra/template.yaml`, `src/sash/aws/`, `docs/AWS.md` |

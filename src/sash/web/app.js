@@ -72,14 +72,48 @@ function bar(lo, hi, point, scale, cls) {
     </div>`;
 }
 
+/* The rule in force, when one is: particulate is not the only reason to air,
+ * and when something more pressing is going on the card says so first. */
+const RULE_FLAG = {
+  clear_now: '<span class="rule-flag">Air now</span>',
+  overdue:   '<span class="rule-flag">Overdue: next three hours</span>',
+  safety:    '<span class="rule-flag safety">Carbon monoxide alert</span>',
+};
+
 function renderDecision(rec) {
   const el = $('#decision');
   const best = rec.best;
+  const flag = RULE_FLAG[rec.mode] || '';
+  if (rec.mode === 'safety') {
+    el.className = 'card decision safety';
+    el.innerHTML = `<div class="eyebrow">The decision</div>${flag}
+      <p class="headline" style="font-size:23px">Open the windows now.</p>
+      <p class="sub">${rec.mode_reason}</p>`;
+    return;
+  }
   if (!best) {
     el.className = 'card decision';
-    el.innerHTML = `<div class="eyebrow">The decision</div>
-      <p class="headline" style="font-size:21px">SASH is not ready to rank your openings.</p>
+    el.innerHTML = `<div class="eyebrow">The decision</div>${flag}
+      <p class="headline" style="font-size:21px">${
+        rec.mode === 'clear_now' ? 'Air the flat now.' : 'SASH is still learning your windows.'}</p>
       <p class="sub">${rec.reason}</p>`;
+    return;
+  }
+
+  if (best.exploration) {
+    /* A calibration airing: a measurement, so no forecast, no comparison and
+     * nothing to publish. */
+    el.className = 'card decision explore';
+    el.innerHTML = `<div class="eyebrow">The decision</div>${flag}
+      <div class="explore-flag">Calibration airing</div>
+      <p class="headline">
+        Open the <span class="opening">${best.opening_label}</span>
+        now for <span class="when">${nf(best.duration_min)}</span> minutes, with the other windows shut.
+      </p>
+      <p class="sub">${rec.mode_reason}</p>
+      <p class="sub">The fumes fading through it are how SASH measures the air a window moves,
+        and this window has not been measured yet.${(rec.alternatives || []).length
+          ? ' The plan SASH would otherwise make is under <em>What else was considered</em>.' : ''}</p>`;
     return;
   }
 
@@ -88,10 +122,9 @@ function renderDecision(rec) {
   const narrative = rec.narrative || {};
   const halfWidth = 0.5 * (best.pred_intake_hi - best.pred_intake_lo);
 
-  el.className = 'card decision' + (best.exploration ? ' explore' : '');
+  el.className = 'card decision';
   el.innerHTML = `
-    <div class="eyebrow">The decision</div>
-    ${best.exploration ? '<div class="explore-flag">Deliberate experiment</div>' : ''}
+    <div class="eyebrow">The decision</div>${flag}
     <p class="headline">
       Open the <span class="opening">${best.opening_label}</span>
       at <span class="when">${hhmm(best.start_at)}</span>
@@ -173,6 +206,25 @@ function renderDecision(rec) {
   };
 }
 
+function renderCalibration(rec) {
+  const steps = rec.onboarding || [];
+  const card = $('#calibration-card');
+  card.hidden = !steps.length;
+  $('.grid-now').classList.toggle('calibrating', steps.length > 0);
+  if (!steps.length) return;
+  $('#calibration-hint').textContent = rec.onboarding_summary;
+  const nowId = rec.best && rec.best.exploration ? rec.best.opening_id : null;
+  $('#calibration-steps').innerHTML = steps.map(s => `
+    <li class="cal-step ${s.opening_id === nowId ? 'now' : ''}">
+      <div>
+        <div class="who">${s.opening_label}${s.opening_id === nowId ? ' <span class="rule-flag">now</span>' : ''}</div>
+        <div class="meter"><i style="width:${Math.round(100 * s.progress)}%"></i></div>
+        <div class="count">${s.unit ? `${s.have} of ${s.need} ${s.unit}` : 'nearly there'}</div>
+      </div>
+      <div class="what">${s.text}</div>
+    </li>`).join('');
+}
+
 function renderDemand(rec, status) {
   const d = rec.demand;
   const i = status.indoor;
@@ -209,7 +261,18 @@ function renderDemand(rec, status) {
 }
 
 function renderAlternatives(rec) {
-  const cheapest = [rec.best, ...(rec.alternatives || [])]
+  /* A calibration airing is a measurement, not a ranked plan: it is not a row
+   * here, and the plan it displaced is the first alternative. */
+  const best = rec.best && !rec.best.exploration ? rec.best : null;
+  if (!best && !(rec.alternatives || []).length) {
+    /* Nothing ranked yet: say so rather than reduce an empty list. */
+    $('#alternatives-hint').textContent =
+      'Nothing to compare yet: SASH ranks openings once it has measured them.';
+    $('#alternatives').className = '';
+    $('#alternatives').innerHTML = '';
+    return;
+  }
+  const cheapest = [best, ...(rec.alternatives || [])]
     .filter(Boolean)
     .reduce((a, b) => (b.pred_intake < a.pred_intake ? b : a));
   $('#alternatives-hint').textContent =
@@ -219,7 +282,7 @@ function renderAlternatives(rec) {
     `${nf(rec.habit_hours, 1)} hours of the day. Plans within eight per cent of each other are ` +
     `tied, and the earlier one wins the tie.`;
   const rows = [];
-  if (rec.best) rows.push({ ...rec.best, chosen: true });
+  if (best) rows.push({ ...best, chosen: true });
   (rec.alternatives || []).forEach(a => rows.push(a));
   if (rec.habit) rows.push({ ...rec.habit, isHabit: true });
 
@@ -686,6 +749,7 @@ async function refreshOnce() {
     const [status, rec] = await Promise.all([get('/api/status'), get('/api/recommendation')]);
     renderLive(status);
     renderDecision(rec);
+    renderCalibration(rec);
     renderDemand(rec, status);
     renderAlternatives(rec);
 

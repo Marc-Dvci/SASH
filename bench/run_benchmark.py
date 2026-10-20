@@ -29,6 +29,13 @@ integrates the flat twice on the record that actually happened. That separates
 two errors a live deployment cannot separate: how wrong the forecast was, and
 how coarse the ruler is.
 
+**6. Stepping aside.** Particulate is not the only reason to air. At every
+decision point, and at moments just after the household stopped cooking, the
+plan is made twice: with :func:`sash.analytics.planner.step_aside` in force and
+without it. Both are priced in the simulator. That says how often the rules
+fire, how long the household is told to wait after a meal with and without
+them, and what the rules cost in street particulate.
+
 Run::
 
     sash bench --homes 24 --nulls 16 --days 120
@@ -102,6 +109,20 @@ class DecisionScore:
 
 
 @dataclass
+class RuleScore:
+    """One moment planned with the step-aside rules and without them."""
+
+    at: float
+    after_meal: bool
+    mode: str
+    delay_h: float
+    delay_h_unruled: float
+    true_ruled: float
+    true_unruled: float
+    changed: bool
+
+
+@dataclass
 class ComparisonScore:
     """One pairwise verdict, against the truth of that pair."""
 
@@ -143,6 +164,7 @@ class HomeScore:
     min_p: float | None = None
     comparisons: list[ComparisonScore] = field(default_factory=list)
     decisions: list[DecisionScore] = field(default_factory=list)
+    rules: list[RuleScore] = field(default_factory=list)
     pricing: list[PricingScore] = field(default_factory=list)
     coverage: float | None = None
     n_coverage: int = 0
@@ -215,6 +237,7 @@ def score_home(kind: str, seed: int, days: float) -> HomeScore:
 
     if kind == "real" and reported:
         score.decisions = _score_decisions(result, params, model, rows, seed)
+        score.rules = _score_rules(result, params, model, rows, seed)
 
     score.pricing = _score_pricing(result, params, rows, openings)
     inside = [p for p in score.pricing if p.inside_interval]
@@ -298,6 +321,88 @@ def _score_decisions(
                 pred_saving_pct=round(pred_saving, 1),
                 true_saving_pct=round(true_saving, 1),
                 better=true_chosen < true_habit,
+            )
+        )
+    return out
+
+
+#: Moments just after cooking, sampled per home for the step-aside score.
+MEALS_PER_HOME = 8
+
+
+def _score_rules(
+    result: sim.SimResult,
+    params: sim.HomeParams,
+    model: estimator.HomeModel,
+    rows: list,
+    seed: int,
+) -> list[RuleScore]:
+    """Plan the same moment with the step-aside rules and without, price both.
+
+    Two kinds of moment: the ordinary decision points the decision score uses,
+    and ten minutes after the household stops cooking, which is when the rules
+    are meant to matter. Cooking is read from the simulator's own emission
+    series, so the moment is the truth; whether SASH notices it is what is being
+    tested.
+    """
+    index = activity_mod.build(result.vehicle_event_times, now=rows[-1].t1)
+    span = rows[-1].t1 - rows[0].t0
+    first = rows[0].t0 + 0.75 * span
+    last = rows[-1].t1 - 8 * 3600.0
+    moments = [
+        (float(t), False)
+        for t in np.linspace(first, last, DECISIONS_PER_HOME)
+    ]
+    co = result.source_co
+    ends = [
+        result.time_at(m) + 600.0
+        for m in range(1, result.minutes)
+        if co[m - 1] > 0 and co[m] == 0
+    ]
+    ends = [t for t in ends if first <= t <= last]
+    if ends:
+        pick = np.linspace(0, len(ends) - 1, min(MEALS_PER_HOME, len(ends)))
+        moments += [(ends[int(round(i))], True) for i in pick]
+
+    out: list[RuleScore] = []
+    for k, (now, after_meal) in enumerate(moments):
+        history = [iv for iv in rows if iv.t1 <= now]
+        if len(history) < 100:
+            continue
+        plans = []
+        for rules in (True, False):
+            rec = planner.recommend(
+                model,
+                index,
+                history,
+                now=now,
+                current_pm=history[-1].c1,
+                humidity=history[-1].humidity,
+                co=history[-1].co,
+                draws=model.draws,
+                explore=False,
+                seed=seed + k,
+                rules=rules,
+            )
+            plans.append(rec)
+        ruled, unruled = plans
+        if ruled.best is None or unruled.best is None:
+            continue
+        a, b = ruled.best, unruled.best
+        true_a = sim.true_intake(result, params, a.opening_id, a.start_at, a.duration_min)
+        true_b = sim.true_intake(result, params, b.opening_id, b.start_at, b.duration_min)
+        if math.isnan(true_a) or math.isnan(true_b):
+            continue
+        out.append(
+            RuleScore(
+                at=now,
+                after_meal=after_meal,
+                mode=ruled.mode,
+                delay_h=round((a.start_at - now) / 3600.0, 2),
+                delay_h_unruled=round((b.start_at - now) / 3600.0, 2),
+                true_ruled=round(true_a, 1),
+                true_unruled=round(true_b, 1),
+                changed=(a.opening_id, a.start_at) != (b.opening_id, b.start_at),
             )
         )
     return out
@@ -430,6 +535,13 @@ def summarise(scores: list[HomeScore]) -> dict[str, Any]:
     n_claimed_null = sum(1 for s in null if s.claimed)
     lo, hi = _wilson(n_claimed_null, n_null_ranked)
 
+    meals = [r for s in real for r in s.rules if r.after_meal]
+    points = [r for s in real for r in s.rules if not r.after_meal]
+    changed = [r for s in real for r in s.rules if r.changed]
+
+    def share(rs: list[RuleScore], pred) -> float | None:
+        return sum(1 for r in rs if pred(r)) / len(rs) if rs else None
+
     priced = [p for s in scores for p in s.pricing]
     truths = [abs(p.truth) for p in priced]
     err_fc = [abs(p.forecast - p.truth) for p in priced]
@@ -500,6 +612,25 @@ def summarise(scores: list[HomeScore]) -> dict[str, Any]:
             "median_true_saving_pct": _median([d.true_saving_pct for d in decisions]),
             "median_pred_saving_pct": _median([d.pred_saving_pct for d in decisions]),
         },
+        "rules": {
+            "n_meals": len(meals),
+            "meals_clear_now": sum(1 for r in meals if r.mode == "clear_now"),
+            "meals_wait_over_2h_unruled": sum(1 for r in meals if r.delay_h_unruled > 2.0),
+            "meals_wait_over_2h_ruled": sum(1 for r in meals if r.delay_h > 2.0),
+            "meals_max_wait_h_unruled": max((r.delay_h_unruled for r in meals), default=None),
+            "meals_max_wait_h_ruled": max((r.delay_h for r in meals), default=None),
+            "n_points": len(points),
+            "points_fired": sum(1 for r in points if r.mode != "plan"),
+            "modes": {
+                m: sum(1 for r in meals + points if r.mode == m)
+                for m in ("plan", "overdue", "clear_now", "safety")
+            },
+            "n_changed": len(changed),
+            "changed_cost_more": sum(1 for r in changed if r.true_ruled > r.true_unruled),
+            "changed_median_extra": _median([r.true_ruled - r.true_unruled for r in changed]),
+            "changed_median_unruled": _median([r.true_unruled for r in changed]),
+            "share_points_changed": share(points, lambda r: r.changed),
+        },
         "false_claims": {
             "n_null_homes_ranked": n_null_ranked,
             "n_claimed": n_claimed_null,
@@ -535,6 +666,7 @@ def markdown(summary: dict[str, Any], seconds: float) -> str:
     d = summary["decisions"]
     f = summary["false_claims"]
     i = summary["pricing"]
+    u = summary["rules"]
     rel = (
         None
         if not i["median_true_intake"]
@@ -589,6 +721,22 @@ Restricted to the households where the openings are distinguishable at all:
 **{d['n_better_when_claimed']} of {d['n_claimed']}**
 ({_pct(d['accuracy_when_claimed'])}), median realised saving
 **{_num(d['median_true_saving_pct_claimed'])}%**.
+
+## Stepping aside
+
+At {u['n_meals']} moments ten minutes after a household stopped cooking, the
+planner without its step-aside rules told the household to wait more than two
+hours in **{u['meals_wait_over_2h_unruled']}** (longest {_num(u['meals_max_wait_h_unruled'])} h).
+With the rules: **{u['meals_wait_over_2h_ruled']}** (longest {_num(u['meals_max_wait_h_ruled'])} h).
+SASH recognised the cooking and switched to "air now" at
+{u['meals_clear_now']} of the {u['n_meals']}.
+
+At the {u['n_points']} ordinary decision points a rule fired at
+{u['points_fired']}. Across both kinds of moment the rules changed
+{u['n_changed']} plans; {u['changed_cost_more']} of those cost more street
+particulate than the plan they replaced, median difference
+{_num(u['changed_median_extra'])} ug/m3 x min (the replaced plans' median
+cost: {_num(u['changed_median_unruled'])}).
 
 ## False claims on openings that are identical
 
