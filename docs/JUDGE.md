@@ -34,7 +34,8 @@ deployed on AWS at
 <https://i1jcuqoto7.execute-api.us-east-1.amazonaws.com/dev/>.
 
 With a Playground token, `RING_ACCESS_TOKEN=<token> sash spike` reads a Ring
-account through the same client: account, devices, every status, two polls.
+account through the same client: account, devices, the camera's Event History
+by type, every status, two polls.
 
 ---
 
@@ -72,7 +73,7 @@ motion is delivered by Ring and discarded at the door: 10,300 dropped against
 ## Four minutes: check the work
 
 ```bash
-pytest                                            # 166 tests
+pytest                                            # 169 tests (148 test functions, some parametrized)
 sash bench --homes 24 --nulls 40 --days 120       # about 8 minutes
 python bench/onboarding.py --homes 24 --days 45   # about 14 minutes
 ```

@@ -24,7 +24,7 @@ import time
 from typing import Any
 
 from .config import SashConfig
-from .ingest import AirQualityPoller, IngestStats, discover_devices
+from .ingest import AirQualityPoller, IngestStats, backfill_vehicle_history, discover_devices
 from .ring.auth import RelinkRequired, StaticTokenService, TokenService
 from .ring.client import RingClient
 from .store import Store
@@ -51,6 +51,8 @@ class LiveRing:
         self.account: dict[str, Any] = {}
         self.discovered_at: float | None = None
         self.last_error: str | None = None
+        #: The last Event History pass per street camera, or the error it hit.
+        self.history: dict[str, dict[str, Any]] = {}
 
     # --- state -------------------------------------------------------------
 
@@ -75,25 +77,41 @@ class LiveRing:
                 "remaining": self.client.rate_limit.remaining,
             },
             "calls": self.client.metrics.calls,
+            "history": self.history,
         }
 
     # --- lifecycle ---------------------------------------------------------
 
     async def discover(self) -> list[dict[str, Any]]:
-        """Read the account and its devices, and record what each one is."""
+        """Read the account and its devices, record what each one is, and
+        recover the street camera's recent vehicle motion from Event History."""
         try:
             self.account = await self.client.me()
             devices = await discover_devices(self.store, self.client)
             self._default_roles()
             self.discovered_at = time.time()
             self.last_error = None
-            return devices
         except RelinkRequired as exc:
             self.last_error = str(exc)
             return []
         except Exception as exc:  # noqa: BLE001 - shown on the Setup tab
             self.last_error = f"{type(exc).__name__}: {exc}"
             raise
+        await self.backfill()
+        return devices
+
+    async def backfill(self) -> None:
+        """One Event History pass per street camera.
+
+        A failure here is recorded against the camera and does not undo
+        discovery: the webhook path works without history.
+        """
+        for camera in self.store.devices(role="street_camera"):
+            try:
+                found = await backfill_vehicle_history(self.store, self.client, camera.device_id)
+                self.history[camera.device_id] = found.as_dict()
+            except Exception as exc:  # noqa: BLE001 - shown on the Setup tab
+                self.history[camera.device_id] = {"error": f"{type(exc).__name__}: {exc}"}
 
     def _default_roles(self) -> None:
         """Give newly discovered devices the role their family implies.
@@ -135,9 +153,10 @@ class LiveRing:
 async def spike(config: SashConfig, store: Store, *, transport: Any = None) -> dict[str, Any]:
     """The first minutes with a Ring account, as one command.
 
-    Reads the account, lists its devices, reads every status, and polls each
-    Air Quality Monitor twice so the second poll shows the repeated reading
-    being refused. Prints what it found and returns it.
+    Reads the account, lists its devices, reads the street camera's Event
+    History by type, reads every status, and polls each Air Quality Monitor
+    twice so the second poll shows the repeated reading being refused. Prints
+    what it found and returns it.
     """
     live = LiveRing(config, store, IngestStats(), transport=transport)
     report: dict[str, Any] = {"mode": live.mode, "api_base_url": config.ring.api_base_url}
@@ -153,6 +172,7 @@ async def spike(config: SashConfig, store: Store, *, transport: Any = None) -> d
             }
             for d in store.devices()
         ]
+        report["history"] = live.history
         statuses = {}
         for entry in devices:
             status = await live.client.device_status(entry["id"])

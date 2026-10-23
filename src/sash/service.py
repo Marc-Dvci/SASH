@@ -27,6 +27,7 @@ from .analytics import (
     sources,
 )
 from .config import AQM_MAX_SAMPLE_AGE_MIN, CO_ALERT_PPM, PM25_ALERT_UG_M3
+from .ingest import UNCLASSIFIED_MOTION_KEY
 from .store import Store
 
 
@@ -447,16 +448,28 @@ class Household:
             }
         )
         recent_vehicle = len(view.activity.times) and (now - view.activity.times[-1]) < 6 * 3600
+        unclassified = self.store.get_meta(UNCLASSIFIED_MOTION_KEY) or {}
+        # The hour is stored truncated, so "within a day" allows the hour itself.
+        smart_alerts_off = (now - float(unclassified.get("last_hour") or 0.0)) < 25 * 3600
+        if recent_vehicle:
+            vehicle_detail = f"{view.activity.n_events} events recorded"
+        elif smart_alerts_off:
+            vehicle_detail = (
+                f"the camera reports motion, but Ring sends it unclassified "
+                f"({unclassified.get('count', 0)} events so far), which is what it does "
+                "when Smart Alerts are off. Turn on Smart Alerts for vehicles on this "
+                "camera in the Ring app: SASH keeps only motion Ring calls a vehicle."
+            )
+        else:
+            vehicle_detail = (
+                "no vehicle-motion events recently. Check that the camera's "
+                "motion zone in the Ring app covers the street."
+            )
         checks.append(
             {
                 "name": "Vehicle-motion events arriving",
                 "ok": bool(recent_vehicle),
-                "detail": (
-                    f"{view.activity.n_events} events recorded"
-                    if recent_vehicle
-                    else "no vehicle-motion events recently. Check that the camera's "
-                    "motion zone in the Ring app covers the street."
-                ),
+                "detail": vehicle_detail,
             }
         )
         openings = self.store.devices(role="opening")

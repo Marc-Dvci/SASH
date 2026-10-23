@@ -1,11 +1,11 @@
 """Ring Partner API payloads, and a local server that speaks them.
 
-A physical Ring device is not required for the Ring track, and the Ring
-Playground simulates camera events but -- as of the August 2026 release notes --
-does not document simulation for the sensor APIs that entered Early Access on
-24 August 2026. This module fills that gap locally: it serves the documented
-endpoints and pushes documented, HMAC-signed webhooks, driven by the physical
-home in ``simulator/home.py``.
+A physical Ring device is not required for the Ring track. The Ring Playground
+gives a thirty-minute token for one simulated doorbell: device discovery,
+status, Event History and live view answer, but it delivers no webhooks and has
+no sensors, which entered Early Access on 24 August 2026. This module fills
+that gap locally: it serves the documented endpoints and pushes documented,
+HMAC-signed webhooks, driven by the physical home in ``simulator/home.py``.
 
 The point is not that the simulator is realistic; it is that **SASH cannot tell
 the difference**. The only thing that changes between this and the real Ring
@@ -177,6 +177,9 @@ ACCOUNT_ID = "ava1.ring.account.SIM7C41"
 LOCATION_ID = "5ecd04ff-3d93-4a6e-80e4-035f735a58e4"
 LOCATION = {"country": "FR", "state": "Grand Est"}
 
+#: Event History rows per page.
+HISTORY_PAGE_SIZE = 100
+
 
 @dataclass
 class SimHome:
@@ -328,24 +331,32 @@ class SimHome:
             return contact_status(device_id, self.opening_open(device_id, t), t)
         raise KeyError(device_id)
 
-    def vehicle_history(self, start: float, end: float, limit: int = 200) -> list[dict[str, Any]]:
+    def history(self, end: float) -> list[dict[str, Any]]:
+        """The camera's Event History up to ``end``, newest first.
+
+        Every motion type the webhooks carry is listed, whatever filter was
+        asked for: ``event_type`` joins kind and sub-type with a dot, and
+        ``start`` and ``end`` are epoch milliseconds.
+        """
+        events = [(stamp, "motion.vehicle") for stamp in self.result.vehicle_event_times]
+        events += [(stamp + 3, "motion.human") for stamp in self.result.vehicle_event_times[::7]]
         rows = []
-        for stamp in self.result.vehicle_event_times:
-            if start <= stamp < end:
+        for stamp, kind in sorted(events, reverse=True):
+            if stamp <= end:
                 rows.append(
                     {
-                        "id": f"hist-{int(stamp * 1000)}",
-                        "type": "event",
+                        "type": "history-events",
+                        "id": f"hist-{kind}-{int(stamp * 1000)}",
                         "attributes": {
-                            "event_type": "motion.vehicle",
-                            "start_time": int(stamp * 1000),
-                            "end_time": int((stamp + 12) * 1000),
-                            "device_id": self.camera_id,
+                            "event_type": kind,
+                            "start": int(stamp * 1000),
+                            "end": int((stamp + 12) * 1000),
+                        },
+                        "relationships": {
+                            "source": {"data": {"type": "devices", "id": self.camera_id}}
                         },
                     }
                 )
-                if len(rows) >= limit:
-                    break
         return rows
 
     # --- the event tape ---------------------------------------------------
@@ -441,7 +452,7 @@ def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
     import hmac as hmac_mod
 
     import httpx
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, Query, Request
     from fastapi.responses import JSONResponse
 
     app = FastAPI(title="Ring Partner API (local simulator)", version="2026-08-24")
@@ -518,16 +529,19 @@ def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
         return {"data": {"type": "locations", "id": LOCATION_ID, "attributes": dict(LOCATION)}}
 
     @app.get("/v1/history/devices/{device_id}/events")
-    async def history(
-        device_id: str,
-        event_types: str = "motion.vehicle",
-        start_time: int | None = None,
-        end_time: int | None = None,
-        limit: int = 200,
-    ) -> dict:
-        start = (start_time / 1000.0) if start_time else home.result.t0
-        end = (end_time / 1000.0) if end_time else home.clock
-        return {"data": home.vehicle_history(start, end, limit)}
+    async def history(device_id: str, page_key: str = Query("0", alias="page[key]")) -> Any:
+        """Paged by ``page[key]``. ``event_types`` is accepted and ignored, as
+        the Playground does, and ``links.next`` is always present: the page
+        after the last one is empty."""
+        if device_id != home.camera_id:
+            return JSONResponse({"error": "not_found"}, status_code=404)
+        rows = home.history(home.clock)
+        offset = int(page_key or 0)
+        nxt = offset + HISTORY_PAGE_SIZE
+        return {
+            "data": rows[offset:nxt],
+            "links": {"next": f"/v1/history/devices/{device_id}/events?page[key]={nxt}"},
+        }
 
     # Media endpoints answer, so the client-side refusal is what is being tested.
     @app.post("/v1/devices/{device_id}/media/video/download")
@@ -580,7 +594,7 @@ def create_app(home: SimHome, hmac_key: str, webhook_url: str | None = None):
 
     @app.post("/sim/vehicle")
     async def vehicle(request: Request) -> dict:
-        """Fire a vehicle-motion event now, the way the Playground does."""
+        """Deliver a signed vehicle-motion webhook stamped now."""
         stamp = home.clock
         payload = motion_payload(home.camera_id, stamp, "vehicle", home.account_id)
         if app.state.webhook_url:

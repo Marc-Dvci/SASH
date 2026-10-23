@@ -15,6 +15,8 @@ document says exactly how it is enforced.
 | Contact transitions, open and closed | Contact sensor webhook | Which opening was open, and for how much of each interval |
 | PM2.5, CO, temperature, humidity | `GET /v1/devices/{id}/status` | The measurement the whole model is fitted to |
 | `device_online` / `device_offline` | Lifecycle webhook | An offline camera reports no vehicles, and that is not a quiet street |
+| `motion.vehicle` rows of the camera's Event History, **start times only** | `GET /v1/history/devices/{id}/events` | Vehicle motion from any time SASH was not listening; every other row type is counted by name and dropped |
+| Unclassified motion (`sub_type = motion`): **a count and the hour of the latest**, nothing else | Camera webhook and Event History | With Smart Alerts off every motion is unclassified and no vehicle arrives; the Setup tab has to be able to say so |
 | `pm25_exceeded` / `pm25_cleared` and the other threshold events | AQM webhook | Shown on the timeline; they are Ring's own alert thresholds |
 
 ## What SASH never requests
@@ -32,6 +34,9 @@ anything is written, and counts the drops. On the demo home's 120 days that is
 10,300 discarded events against 72,099 kept. A record of when the household comes
 and goes is exactly what this product must not accumulate, and
 `tests/test_webhook.py::test_human_motion_is_discarded_at_the_door` pins it.
+Unclassified motion is discarded the same way; only how many arrived and the
+hour of the latest are kept, so the Setup tab can tell the household that
+Smart Alerts look off.
 
 ---
 

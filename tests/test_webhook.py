@@ -183,6 +183,41 @@ def test_human_motion_is_discarded_at_the_door(store):
         deliver(r, motion_payload("cam", 1_760_000_100.0, sub_type))
     assert store.vehicle_event_count() == 1
     assert processor.stats.motion_discarded == 3
+    assert processor.stats.motion_unclassified == 1
+
+
+def test_smart_alerts_off_is_said_on_the_setup_tab_not_dropped_silently(store):
+    """With the owner's Smart Alerts off, Ring sends every motion as ``motion``.
+
+    None of it is a vehicle, so none of it is stored, and the street goes quiet.
+    SASH keeps a count and the hour of the latest, and the health check names
+    the cause instead of blaming the motion zone.
+    """
+    from sash.service import Household
+
+    store.upsert_device("cam", "Front", "camera")
+    store.set_role("cam", "street_camera", "Front", "street")
+    processor = EventProcessor(store)
+    r = WebhookReceiver(HMAC_KEY, store, processor_sink(processor))
+    stamps = [1_760_000_100.0 + 600.0 * i for i in range(5)]
+    for t in stamps:
+        deliver(r, motion_payload("cam", t, "motion"))
+    assert store.vehicle_event_count() == 0
+    assert processor.stats.motion_unclassified == 5
+    assert store.get_meta("unclassified_motion") == {
+        "count": 5,
+        "last_hour": stamps[-1] - stamps[-1] % 3600,
+    }
+
+    checks = Household(store, clock=lambda: stamps[-1] + 3600.0).health()["checks"]
+    (vehicle,) = [c for c in checks if c["name"] == "Vehicle-motion events arriving"]
+    assert vehicle["ok"] is False
+    assert "Smart Alerts" in vehicle["detail"] and "5 events" in vehicle["detail"]
+
+    # Two days on with nothing unclassified since, the old cause is not repeated.
+    checks = Household(store, clock=lambda: stamps[-1] + 2 * 86400.0).health()["checks"]
+    (vehicle,) = [c for c in checks if c["name"] == "Vehicle-motion events arriving"]
+    assert "Smart Alerts" not in vehicle["detail"]
 
 
 def test_device_offline_is_recorded_so_a_quiet_street_is_not_invented(store):

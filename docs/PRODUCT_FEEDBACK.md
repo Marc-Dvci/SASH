@@ -11,11 +11,13 @@ The submission form's own questions, answered.
 from the JSON:API compound document; `GET /v1/devices/{id}/status` polled for
 the Air Quality Monitor's PM2.5, CO, temperature and humidity;
 `GET /v1/devices/{id}/configurations` for change detection on motion zones;
-`GET /v1/history/devices/{id}/events` with `event_types=motion.vehicle` for
-camera history since the link; `GET /v1/users/me` for account identity.
+`GET /v1/history/devices/{id}/events` for the street camera's vehicle motion
+since the link, paged by `page[key]` and filtered by type on SASH's side;
+`GET /v1/users/me` for account identity.
 Implemented in `src/sash/ring/client.py`, which also carries the path allowlist
-that refuses every media endpoint. `src/sash/live.py` runs discovery and the
-poller against an account, from a Playground token or a linked app.
+that refuses every media endpoint. `src/sash/live.py` runs discovery, the
+Event History pass and the poller against an account, from a Playground token
+or a linked app.
 
 **Ring webhooks.** The only source of sensor data. `motion_detected` with
 `sub_type = vehicle` from an outdoor camera gives the street's traffic rhythm;
@@ -85,7 +87,7 @@ guessing, which is rarer than it should be.
 
 ## What needs work?
 
-Twelve entries with severities, steps and suggestions are in
+Fourteen entries with severities, steps and suggestions are in
 `docs/FRICTION_LOG.md`. The four that shaped this project:
 
 1. **A sensor integration starts blind.** Webhooks are the only source of
@@ -107,10 +109,10 @@ Twelve entries with severities, steps and suggestions are in
    humidity and PM2.5 have theirs in the reading attributes table; `co` does
    not. A tracer method needs both.
 
-4. **Sensor events are outside the Playground.** It simulates Package, Vehicle
-   and Motion camera events and issues a token without an app, which is
-   excellent for the camera half; the sensor families have no simulated events.
-   So I wrote a Ring account simulator, about 1,500 lines and most of a day,
+4. **Sensor events are outside the Playground.** It is one simulated doorbell
+   with a thirty-minute token that needs no app; discovery, status and Event
+   History answer it, but it delivers no webhooks and has no sensors. So I
+   wrote a Ring account simulator, about 1,500 lines and most of a day,
    before I could write a line of the product. It became the most valuable
    component in the repo.
 
@@ -118,8 +120,10 @@ Also: the camera scope that delivers motion metadata also carries video,
 snapshots and live view, and a household cannot tell from the consent screen
 that an integration uses only the metadata; the device resource has no family
 field, so every integration writes the same classifier from status attributes;
-and the fifteen-minute reporting cadence lives in the product material rather
-than beside the status endpoint.
+the fifteen-minute reporting cadence lives in the product material rather
+than beside the status endpoint; Event History has no response schema, so its
+field names come from Ring's sample; and with the owner's Smart Alerts off
+every motion is plain `motion`, a setting a partner cannot read.
 
 ---
 
@@ -133,15 +137,17 @@ is stated clearly. I had a client, an OAuth flow and a signature verifier writte
 from the docs alone in a few hours, and the reference's own example payloads
 now run as tests against them.
 
-**Getting a first sensor event: a day.** Zero to hello world for a *camera*
-integration is a click, because the Playground fires camera events and issues a
-token. Zero to hello world for a *sensor* integration was a day of writing a
-simulator, because nothing available fires a contact-sensor fault or an Air
-Quality Monitor reading. The sensor scopes went Early Access on 24 August 2026
+**Getting a first event: a day.** Zero to a first call is a click, because the
+Playground issues a token for a simulated doorbell and discovery, status and
+Event History answer it. Zero to a first event for SASH was a day of writing a
+simulator, because the Playground delivers no webhooks and nothing available
+fires a vehicle-motion webhook, a contact-sensor fault or an Air Quality
+Monitor reading. The sensor scopes went Early Access on 24 August 2026
 and the tooling is a step behind them.
 
-The single highest-leverage fix in the whole developer experience would be adding
-sensor events to the Playground's event menu. Even one button per event type.
+The single highest-leverage fix in the whole developer experience would be a
+Playground that delivers its events as signed webhooks, with sensor events on
+its menu. Even one button per event type.
 
 ---
 

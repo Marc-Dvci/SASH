@@ -23,6 +23,17 @@ SUBTYPE_HUMAN = "human"
 SUBTYPE_VEHICLE = "vehicle"
 SUBTYPE_OTHER = "other_motion"
 
+#: With the owner's Smart Alerts off, every motion event arrives as plain
+#: ``motion``: Ring classifies nothing, so no vehicle ever arrives. A missing
+#: ``sub_type`` says the same.
+UNCLASSIFIED_SUBTYPES = frozenset({SUBTYPE_MOTION, "", None})
+
+#: Event History names the same events ``attributes.event_type``, joining kind
+#: and sub-type with a dot (``motion.vehicle``, ``motion.human``, ``ding``).
+#: Plain ``motion`` is the unclassified case.
+HISTORY_VEHICLE = "motion.vehicle"
+HISTORY_UNCLASSIFIED = "motion"
+
 # --- sensors (Early Access, August 2026) ------------------------------------
 CONTACT_FAULTED = "contact_sensor_faulted"  # circuit broken -> opening is OPEN
 CONTACT_CLEARED = "contact_sensor_cleared"  # circuit restored -> opening is CLOSED

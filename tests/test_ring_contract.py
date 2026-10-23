@@ -289,3 +289,136 @@ def test_documented_threshold_event_keeps_its_reading(store):
     (row,) = store.threshold_events()
     assert row["event_type"] == "pm25_exceeded"
     assert row["level"] == pytest.approx(41.2)
+
+
+# Event History has no example in the reference. Ring's ring-api-helloworld
+# sample (scripts/event_history.py) reads ``attributes.event_type`` and
+# ``attributes.start``; ``start`` and ``end`` are epoch milliseconds and
+# ``links.next`` carries the next page as ``page[key]``. The filter asked for
+# ``motion.vehicle`` and every type came back anyway, as on the Playground.
+HISTORY_NOW = 1786720000.0
+HISTORY_PAGES = {
+    None: {
+        "data": [
+            {
+                "type": "history-events",
+                "id": "h-vehicle",
+                "attributes": {"event_type": "motion.vehicle", "start": 1786715596787, "end": 1786715608787},
+            },
+            {
+                "type": "history-events",
+                "id": "h-human",
+                "attributes": {"event_type": "motion.human", "start": 1786715500000, "end": 1786715510000},
+            },
+            {
+                "type": "history-events",
+                "id": "h-motion",
+                "attributes": {"event_type": "motion", "start": 1786715400000, "end": 1786715410000},
+            },
+            {
+                "type": "history-events",
+                "id": "h-on-demand",
+                "attributes": {"event_type": "on_demand", "start": 1786715300000, "end": 1786715330000},
+            },
+        ],
+        "links": {"next": "/v1/history/devices/ava1.ring.device.XXXYYY/events?page[key]=k2"},
+    },
+    "k2": {
+        "data": [
+            {
+                "type": "history-events",
+                "id": "h-vehicle-2",
+                "attributes": {"event_type": "motion.vehicle", "start": 1786712000000, "end": 1786712012000},
+            },
+            {
+                "type": "history-events",
+                "id": "h-vehicle-old",
+                "attributes": {"event_type": "motion.vehicle", "start": 1786000000000, "end": 1786000012000},
+            },
+        ],
+        "links": {"next": "/v1/history/devices/ava1.ring.device.XXXYYY/events?page[key]=k3"},
+    },
+    "k3": {
+        "data": [],
+        "links": {"next": "/v1/history/devices/ava1.ring.device.XXXYYY/events?page[key]=k4"},
+    },
+}
+
+
+class _HistoryTransport:
+    """Serves ``HISTORY_PAGES`` over HTTP to the real client, and records each query."""
+
+    def __init__(self):
+        self.queries = []
+
+    def __call__(self, request):
+        import httpx
+
+        params = dict(request.url.params)
+        self.queries.append(params)
+        return httpx.Response(200, json=HISTORY_PAGES[params.get("page[key]")])
+
+
+def _history_client(transport):
+    import httpx
+
+    from sash.config import RingConfig
+    from sash.ring.client import RingClient
+
+    async def token():
+        return "t"
+
+    config = RingConfig()
+    config.api_base_url = "http://ring"
+    return RingClient(config, token, transport=httpx.MockTransport(transport))
+
+
+def test_history_rows_are_read_from_start_in_milliseconds_and_filtered_here(store):
+    from sash.ingest import backfill_vehicle_history
+
+    transport = _HistoryTransport()
+    client = _history_client(transport)
+    found = asyncio.run(
+        backfill_vehicle_history(store, client, "ava1.ring.device.XXXYYY", now=HISTORY_NOW)
+    )
+    asyncio.run(client.aclose())
+
+    # Only motion.vehicle inside the window is stored, at the row's own start.
+    assert store.vehicle_event_times() == [
+        pytest.approx(1786712000.0),
+        pytest.approx(1786715596.787),
+    ]
+    assert found.vehicle_added == 2
+    assert found.outside_window == 1
+    assert found.unclassified == 1
+    assert found.by_type == {"motion.vehicle": 3, "motion.human": 1, "motion": 1, "on_demand": 1}
+    # Pages followed by page[key] until one came back empty, the filter re-sent on each.
+    assert found.pages == 3
+    assert [q.get("page[key]") for q in transport.queries] == [None, "k2", "k3"]
+    assert all(q["event_types"] == "motion.vehicle" for q in transport.queries)
+    # No undocumented parameters.
+    assert all(set(q) <= {"event_types", "page[key]"} for q in transport.queries)
+
+
+def test_history_does_not_count_a_webhook_vehicle_twice(store):
+    from sash.ingest import backfill_vehicle_history
+
+    event = ev.parse(MOTION_WEBHOOK, received_at=0.0)
+    store.add_vehicle_event(event.request_id, event.device_id, event.timestamp, "webhook")
+    client = _history_client(_HistoryTransport())
+    found = asyncio.run(
+        backfill_vehicle_history(store, client, "ava1.ring.device.XXXYYY", now=HISTORY_NOW)
+    )
+    asyncio.run(client.aclose())
+    assert found.vehicle_on_record == 1
+    assert found.vehicle_added == 1
+    assert store.vehicle_event_count() == 2
+
+    # A second pass adds nothing.
+    client = _history_client(_HistoryTransport())
+    again = asyncio.run(
+        backfill_vehicle_history(store, client, "ava1.ring.device.XXXYYY", now=HISTORY_NOW)
+    )
+    asyncio.run(client.aclose())
+    assert again.vehicle_added == 0
+    assert store.vehicle_event_count() == 2

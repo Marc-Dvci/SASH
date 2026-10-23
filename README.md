@@ -75,12 +75,15 @@ been drawn, so the plan is scored against the readings that followed.
 
 ```bash
 export RING_ACCESS_TOKEN=<token from the Ring Developer Playground>
-sash spike        # account, devices, every status, two polls of the Air Quality Monitor
+sash spike        # account, devices, camera history by type, every status, two polls of the Air Quality Monitor
 sash live         # the product, discovering devices and polling on a five-minute schedule
 ```
 
 The Playground at <https://developer.amazon.com/ring/console/playground> issues a
-token in one click, with no app registration and no subscription. With a
+thirty-minute token in one click, with no app registration and no subscription,
+for one simulated doorbell: `sash spike` reads its account, device, status and
+Event History. It delivers no webhooks and has no sensors, so the vehicle,
+contact and Air Quality Monitor events in the demo come from `simulator/`. With a
 registered app, set `RING_CLIENT_ID`, `RING_CLIENT_SECRET` and
 `RING_REDIRECT_URI` instead and the Setup tab offers **Link your Ring account**;
 `/ring/link` sends the household to Ring's consent page and `/ring/callback`
@@ -93,7 +96,7 @@ sash fit                        # print the fitted household model as JSON
 sash serve                      # serve an existing database
 sash bench --homes 24 --nulls 40 --days 120     # the benchmark below
 python bench/onboarding.py --homes 24 --days 45 # the first weeks, habit against guided
-pytest                          # 166 tests
+pytest                          # 169 tests (148 test functions, some parametrized)
 ```
 
 ---
@@ -278,7 +281,7 @@ simulator/       A Ring account: ground-truth physics, the documented endpoints,
                  and a replay through the real ingest path
 infra/           The SAM template and the table seeder
 bench/           The benchmark, the onboarding benchmark, and their results
-tests/           166 tests, including Ring's own reference payloads verbatim
+tests/           169 tests, including Ring's own reference payloads verbatim
 docs/            MODEL, ARCHITECTURE, PRIVACY, RING_API_NOTES, BENCHMARK, AWS,
                  FRICTION_LOG, PRODUCT_FEEDBACK, DEMO_SCRIPT, JUDGE
 ```

@@ -23,7 +23,7 @@ Base URL `https://api.amazonvision.com`.
 | `GET /v1/devices/{id}/capabilities` | Family hints and battery support |
 | `GET /v1/devices/{id}/location` | Shown in setup |
 | `GET /v1/devices/{id}/configurations` | Change detection on motion zones |
-| `GET /v1/history/devices/{id}/events` | Camera event history, `event_types=motion.vehicle` |
+| `GET /v1/history/devices/{id}/events` | The street camera's vehicle motion since the link, paged by `page[key]`, filtered by type on SASH's side |
 | `GET /v1/users/me` | Account identity at link time |
 
 Media endpoints (`/media/video/download`, `/media/image/download`,
@@ -53,9 +53,10 @@ that mapping belongs.
   token lives about four hours and the refresh token about thirty days, so
   `TokenService` refreshes ten minutes early and marks the household
   `relink_required` the moment a refresh is rejected.
-- The Playground issues a one-click token valid for thirty minutes.
-  `RING_ACCESS_TOKEN` drops it into `StaticTokenService`, so `sash spike` and
-  `sash live` run the same client code path with no OAuth round trip.
+- The Playground issues a one-click token valid for thirty minutes, with no
+  refresh token. `RING_ACCESS_TOKEN` drops it into `StaticTokenService`, so
+  `sash spike` and `sash live` run the same client code path with no OAuth
+  round trip.
 
 ## Webhooks
 
@@ -75,6 +76,12 @@ that mapping belongs.
   `meta.time` is when Ring sent the delivery.
 - Motion events carry `attributes.sub_type` in `motion`, `human`, `vehicle`,
   `other_motion`. SASH keeps `vehicle` and discards the rest at the door.
+- Ring classifies motion only when the owner has Smart Alerts on. With them
+  off, every motion event is plain `motion` and no vehicle ever arrives. SASH
+  counts unclassified motion (a count and the hour of the latest, nothing
+  else), and when no vehicle has arrived and unclassified motion has, the Setup
+  tab says Smart Alerts look off rather than blaming the motion zone. Friction
+  log entry 14.
 - Sensor detection events carry the whole signal in `data.type`
   (`contact_sensor_faulted`, `contact_sensor_cleared`); no attribute carries
   the new state. Threshold events add the reading: `pm25_level` on
@@ -166,9 +173,19 @@ with progress, which brings the medians to 9 and 11 days
 - **`device_online` is a heartbeat on sensors**, emitted on every uplink, and
   `device_offline` follows a heartbeat timeout. SASH reconstructs camera outages
   from the pair and excludes those intervals from every street term.
-- **The Playground (May 2026) simulates Package, Vehicle and Motion camera
-  events** and issues a token without an app. Sensor events come from
-  `simulator/`, which serves the same contract.
+- **Event History rows** carry `attributes.event_type` (`motion.vehicle`,
+  `motion.human`, plain `motion`, `ding`, `on_demand`) and `attributes.start`
+  and `end` in epoch milliseconds, the fields Ring's `ring-api-helloworld`
+  sample reads. The Playground does not honour the `event_types` filter, and
+  pages come through `links.next` as `page[key]`. SASH sends no time-range
+  parameter, reads pages until one comes back empty, applies type and window
+  to every row itself, and matches each vehicle row one-to-one against events
+  already received by webhook within ten seconds. Friction log entry 13.
+- **The Playground (May 2026) is one simulated doorbell** with Package, Vehicle
+  and Motion live-view streams and a token that needs no app. Discovery, status
+  and Event History answer it, which is what `sash spike` reads. It delivers no
+  webhooks and has no sensors, so vehicle, contact and Air Quality Monitor
+  events come from `simulator/`, which serves the same contract.
 - **Sensors and dynamic scopes went Early Access on 24 August 2026.** Sensor
   API calls can ship in an app now; publication waits on dynamic scopes reaching
   general availability.
@@ -179,7 +196,7 @@ with progress, which brings the medians to 9 and 11 days
 
 ```bash
 export RING_ACCESS_TOKEN=<Playground token>
-sash spike     # account, devices, every status, two polls: the second is refused as a repeat
+sash spike     # account, devices, camera history by type, every status, two polls: the second is refused as a repeat
 sash live      # the product, discovering devices and polling every five minutes
 ```
 

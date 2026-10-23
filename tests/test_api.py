@@ -301,6 +301,13 @@ def test_live_discovers_and_polls_through_the_documented_endpoints():
     assert report["poll"]["repeats_refused"] == 1
     assert report["rate_limit"]["limit"] == 100
 
+    # Event History, paged and filtered by type here: only vehicles are kept.
+    history = report["history"][home.camera_id]
+    in_tape = [t for t in home.result.vehicle_event_times if t <= home.clock]
+    assert history["vehicle_added"] == len(in_tape) == store.vehicle_event_count()
+    assert history["by_type"]["motion.human"] > 0
+    assert history["pages"] > 1
+
     roles = {d.device_id: d.app_role for d in store.devices()}
     assert roles[home.aqm_id] == "indoor_air"
     assert roles[home.camera_id] == "street_camera"
@@ -308,4 +315,12 @@ def test_live_discovers_and_polls_through_the_documented_endpoints():
 
     live = LiveRing(config, store, IngestStats(), transport=httpx.ASGITransport(app=ring_app))
     assert live.linked and live.describe()["mode"] == "access_token"
-    asyncio.run(live.stop())
+
+    # A restart rediscovers and reads history again, and adds no vehicle twice.
+    async def rediscover():
+        await live.discover()
+        await live.stop()
+
+    asyncio.run(rediscover())
+    assert store.vehicle_event_count() == len(in_tape)
+    assert live.describe()["history"][home.camera_id]["vehicle_on_record"] == len(in_tape)

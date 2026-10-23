@@ -19,6 +19,7 @@ not a measurement, and is recorded as such.
 from __future__ import annotations
 
 import asyncio
+import bisect
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -40,6 +41,8 @@ class IngestStats:
     processed: int = 0
     vehicle: int = 0
     motion_discarded: int = 0
+    #: Of the discarded, how many Ring left unclassified (Smart Alerts off).
+    motion_unclassified: int = 0
     contact: int = 0
     threshold: int = 0
     lifecycle: int = 0
@@ -94,9 +97,17 @@ class EventProcessor:
         Human and generic motion are discarded at the door. SASH models a
         street, not the people on it, and the cheapest way to guarantee that is
         never to write those events down.
+
+        Unclassified motion is discarded too, but not silently. It is what
+        every motion event looks like when the owner's Smart Alerts are off,
+        and then no vehicle will ever arrive, so the Setup tab has to be able
+        to say why. Only a count and the hour of the latest are kept.
         """
         if event.sub_type != ev.SUBTYPE_VEHICLE:
             self.stats.motion_discarded += 1
+            if event.sub_type in ev.UNCLASSIFIED_SUBTYPES:
+                self.stats.motion_unclassified += 1
+                note_unclassified_motion(self.store, event.timestamp)
             return
         if not event.device_id:
             return
@@ -356,29 +367,146 @@ def _config_hash(attrs: dict[str, Any]) -> str | None:
     return hashlib.sha256(blob).hexdigest()[:16]
 
 
+#: Meta key for unclassified motion: a count and the hour of the latest.
+UNCLASSIFIED_MOTION_KEY = "unclassified_motion"
+
+#: A history row this close to a vehicle event already on record is that event,
+#: delivered once by webhook and listed again by Event History.
+HISTORY_DEDUPE_S = 10.0
+
+#: Pages of Event History read per backfill, at most.
+HISTORY_MAX_PAGES = 20
+
+
+def note_unclassified_motion(store: Store, timestamp: float) -> None:
+    """Count one unclassified motion event, keeping only the hour it fell in."""
+    seen = store.get_meta(UNCLASSIFIED_MOTION_KEY) or {}
+    hour = float(timestamp - timestamp % 3600)
+    store.set_meta(
+        UNCLASSIFIED_MOTION_KEY,
+        {
+            "count": int(seen.get("count", 0)) + 1,
+            "last_hour": max(float(seen.get("last_hour") or 0.0), hour),
+        },
+    )
+
+
+@dataclass
+class HistoryBackfill:
+    """What one pass over a camera's Event History found."""
+
+    pages: int = 0
+    rows: int = 0
+    vehicle_added: int = 0
+    vehicle_on_record: int = 0
+    unclassified: int = 0
+    outside_window: int = 0
+    unreadable: int = 0
+    by_type: dict[str, int] = field(default_factory=dict)
+
+    def as_dict(self) -> dict[str, Any]:
+        data = {k: v for k, v in self.__dict__.items() if k != "by_type"}
+        data["by_type"] = dict(self.by_type)
+        return data
+
+
 async def backfill_vehicle_history(
-    store: Store, client: RingClient, camera_id: str, *, days: float = 7.0
-) -> int:
-    """Fetch recent vehicle-motion events from the camera Event History API.
+    store: Store,
+    client: RingClient,
+    camera_id: str,
+    *,
+    days: float = 7.0,
+    now: float | None = None,
+    max_pages: int = HISTORY_MAX_PAGES,
+) -> HistoryBackfill:
+    """Recover vehicle-motion events from the camera's Event History.
 
     This exists for cameras only. There is no sensor equivalent, which is why
     the first useful window model is weeks rather than hours after linking.
+    What it buys is the street record across any time SASH was not listening.
+
+    A row is ``{"id", "attributes": {"event_type", "start", "end"}}`` with
+    ``start`` and ``end`` in epoch milliseconds. Neither the type filter nor a
+    time range can be left to the server, so both are applied here, to every
+    row of every page. Only ``motion.vehicle`` rows are stored; plain
+    ``motion`` is counted as unclassified, and every other type is counted by
+    name and dropped.
     """
-    end_ms = int(time.time() * 1000)
-    start_ms = int(end_ms - days * 86400_000)
-    rows = await client.event_history(
-        camera_id, event_types="motion.vehicle", start_ms=start_ms, end_ms=end_ms
+    end = time.time() if now is None else now
+    start = end - days * 86400.0
+    report = HistoryBackfill()
+    on_record = _OnRecord(
+        store.vehicle_event_times(start - HISTORY_DEDUPE_S, end + HISTORY_DEDUPE_S)
     )
-    added = 0
-    for row in rows:
-        attrs = row.get("attributes", row) or {}
-        stamp = attrs.get("start_time") or attrs.get("timestamp")
-        if stamp is None:
-            continue
-        stamp = float(stamp)
-        if stamp > 1e11:
-            stamp /= 1000.0
-        event_id = str(row.get("id") or f"hist:{camera_id}:{int(stamp)}")
-        store.add_vehicle_event(event_id, camera_id, stamp, "history")
-        added += 1
-    return added
+    page_key: str | None = None
+    seen_keys: set[str] = set()
+    while report.pages < max_pages:
+        rows, next_key = await client.event_history(
+            camera_id, event_types=ev.HISTORY_VEHICLE, page_key=page_key
+        )
+        report.pages += 1
+        if not rows:
+            break
+        for row in rows:
+            _apply_history_row(store, camera_id, row, start, end, on_record, report)
+        if not next_key or next_key in seen_keys:
+            break
+        seen_keys.add(next_key)
+        page_key = next_key
+    return report
+
+
+class _OnRecord:
+    """Vehicle events stored before a backfill, each claimable by one history row.
+
+    One-to-one, so two cars a few seconds apart that both arrived by webhook
+    absorb their two history rows, and a burst Ring lists twice is not
+    collapsed into one car.
+    """
+
+    def __init__(self, times: list[float]):
+        self.times = sorted(times)
+        self.claimed: set[int] = set()
+
+    def claim(self, stamp: float) -> bool:
+        lo = bisect.bisect_left(self.times, stamp - HISTORY_DEDUPE_S)
+        hi = bisect.bisect_right(self.times, stamp + HISTORY_DEDUPE_S)
+        free = [i for i in range(lo, hi) if i not in self.claimed]
+        if not free:
+            return False
+        self.claimed.add(min(free, key=lambda i: abs(self.times[i] - stamp)))
+        return True
+
+
+def _apply_history_row(
+    store: Store,
+    camera_id: str,
+    row: dict[str, Any],
+    start: float,
+    end: float,
+    on_record: _OnRecord,
+    report: HistoryBackfill,
+) -> None:
+    report.rows += 1
+    attrs = row.get("attributes") or {}
+    kind = str(attrs.get("event_type") or "")
+    report.by_type[kind] = report.by_type.get(kind, 0) + 1
+    if kind not in (ev.HISTORY_VEHICLE, ev.HISTORY_UNCLASSIFIED):
+        return
+    stamp = ev.epoch_seconds(attrs.get("start"))
+    if stamp is None:
+        report.unreadable += 1
+        return
+    if not start <= stamp <= end:
+        report.outside_window += 1
+        return
+    if kind == ev.HISTORY_UNCLASSIFIED:
+        report.unclassified += 1
+        note_unclassified_motion(store, stamp)
+        return
+    if on_record.claim(stamp):
+        report.vehicle_on_record += 1
+        return
+    row_id = row.get("id") or f"{camera_id}:{int(stamp * 1000)}"
+    store.add_vehicle_event(f"history:{row_id}", camera_id, stamp, "history")
+    report.vehicle_added += 1

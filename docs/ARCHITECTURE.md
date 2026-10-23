@@ -46,7 +46,7 @@ model or touches the network.
 | `ring/client.py` | Async REST client with a **path allowlist**. Media paths raise `MediaAccessDenied` before a socket opens. Absorbs `X-RateLimit-*`, backs off on 429. |
 | `ring/auth.py` | OAuth code exchange and refresh, at-rest obfuscation, plus `StaticTokenService` for the Playground's one-click token. |
 | `ingest.py` | `EventProcessor` applies one event. `Pipeline` is the queue (SQS-shaped). `AirQualityPoller` polls device status. `discover_devices` walks `/v1/devices` and decides each device's family from what it reports. |
-| `live.py` | `LiveRing`: the product against a Ring account. A Playground token or a linked app, discovery, default roles, the poller. `spike()` is the first minutes with an account as one command. |
+| `live.py` | `LiveRing`: the product against a Ring account. A Playground token or a linked app, discovery, default roles, the Event History pass, the poller. `spike()` is the first minutes with an account as one command. |
 | `store.py` | SQLite. `reported_at` is the primary key of `aq_samples`, so a repeated reading is refused rather than stored. |
 | `analytics/intervals.py` | The observation table. Open fractions, activity, camera-outage exclusion, episode ids. |
 | `analytics/sources.py` | Indoor-emission detection by interval balance on the CO and humidity channels. |
@@ -67,8 +67,8 @@ model or touches the network.
 ## The simulator
 
 `simulator/` is a Ring account rather than a fixture loader. It exists because
-the Ring Playground simulates camera events, and a sensor-first integration
-needs sensor events too (friction log entry 5).
+the Ring Playground delivers no webhooks and has no sensors, and SASH runs on
+both (friction log entry 5).
 
 - `home.py` is a single-zone mass balance producing PM2.5, humidity, temperature
   and CO on a one-minute grid, driven by a regional background, a street activity

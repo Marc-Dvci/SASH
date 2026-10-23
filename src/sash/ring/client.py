@@ -23,6 +23,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
@@ -125,6 +126,15 @@ def sideload(devices: list[dict[str, Any]], included: list[dict[str, Any]]) -> l
         entry["attributes"] = attrs
         out.append(entry)
     return out
+
+
+def _page_key(next_link: Any) -> str | None:
+    """The ``page[key]`` of a ``links.next`` URL, or None for no next page."""
+    if not isinstance(next_link, str) or not next_link:
+        return None
+    query = parse_qs(urlsplit(next_link).query)
+    keys = query.get("page[key]") or []
+    return keys[0] if keys and keys[0] else None
 
 
 class RingClient:
@@ -263,22 +273,28 @@ class RingClient:
         device_id: str,
         *,
         event_types: str = "motion.vehicle",
-        start_ms: int | None = None,
-        end_ms: int | None = None,
-        limit: int = 200,
-    ) -> list[dict[str, Any]]:
-        """Camera event history. There is no sensor equivalent of this endpoint."""
-        params: dict[str, Any] = {"event_types": event_types, "limit": limit}
-        if start_ms is not None:
-            params["start_time"] = start_ms
-        if end_ms is not None:
-            params["end_time"] = end_ms
+        page_key: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """One page of camera event history, and the key of the next page.
+
+        There is no sensor equivalent of this endpoint. Each row carries
+        ``attributes.event_type`` and ``attributes.start`` in epoch
+        milliseconds, the fields Ring's ``ring-api-helloworld`` sample reads.
+        ``event_types`` is the only documented filter and the Playground
+        ignores it, so it is sent on every page but never relied on: the caller
+        filters by type and by time. ``links.next`` carries the next page as
+        ``page[key]``.
+        """
+        params: dict[str, Any] = {"event_types": event_types}
+        if page_key:
+            params["page[key]"] = page_key
         payload = await self.request(
             "GET", f"/v1/history/devices/{device_id}/events", params=params
         )
-        if isinstance(payload, dict):
-            return list(payload.get("data") or [])
-        return list(payload or [])
+        if not isinstance(payload, dict):
+            return list(payload or []), None
+        links = payload.get("links") or {}
+        return list(payload.get("data") or []), _page_key(links.get("next"))
 
     async def me(self) -> dict[str, Any]:
         payload = await self.request("GET", "/v1/users/me")

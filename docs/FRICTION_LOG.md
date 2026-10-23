@@ -1,6 +1,6 @@
 # Friction log
 
-Twelve entries from building SASH against the Ring Partner API and its
+Fourteen entries from building SASH against the Ring Partner API and its
 documentation, in the order they cost time. Each one is a task I attempted, what
 I expected, what happened, what I did instead, and what I would change.
 
@@ -147,9 +147,12 @@ for a way to fire a sensor event or set a sensor's reported status.
 exposes, so a sensor integration could be developed the same way a camera
 integration can.
 
-**Actual.** The Playground simulates Package, Vehicle and Motion camera events
-and issues a token without an app, which is excellent for the camera half. The
-sensor families that went Early Access on 24 August have no simulated events.
+**Actual.** The Playground issues a thirty-minute token without an app for one
+simulated doorbell, with Package, Vehicle and Motion live-view streams. Device
+discovery, status and Event History answer that token, and that is the part of
+SASH it runs: `sash spike`. It delivers no webhooks, so not even the camera
+half of SASH, which runs on vehicle-motion webhooks, has events there, and the
+sensor families that went Early Access on 24 August are absent.
 
 **Severity.** High. It is the difference between an afternoon and a week for
 anyone building on the sensor scopes.
@@ -160,10 +163,11 @@ documented HMAC scheme. It is about 1,500 lines and most of a day. It became the
 most valuable component in the project, and `tests/test_ring_contract.py` keeps
 it aligned with the reference pages' own example payloads.
 
-**Suggestion.** Add contact-sensor faulted/cleared and Air Quality Monitor
-threshold events to the Playground's event menu, and a way to set a device's
-reported status. Even a single button per sensor event type would remove the
-need for anyone to write what I wrote.
+**Suggestion.** Deliver the Playground's events as signed webhooks to the app's
+webhook URL, add contact-sensor faulted/cleared and Air Quality Monitor
+threshold events to its event menu, and a way to set a device's reported
+status. Even a single button per sensor event type would remove the need for
+anyone to write what I wrote.
 
 ---
 
@@ -347,6 +351,70 @@ reading scopes first builds before learning what the integration can become.
 
 **Suggestion.** Repeat the Early Access status and its publication implication on
 the scope reference page.
+
+---
+
+## 13. Event History has an endpoint and no response schema
+
+**Task.** Recover the street camera's vehicle motion across any time SASH was
+not listening, from `GET /v1/history/devices/{id}/events`.
+
+**Steps.** Read the endpoint reference, then Ring's `ring-api-helloworld`
+sample (`scripts/event_history.py`).
+
+**Expected.** The row fields, the time-range parameters, pagination and
+retention, the way the media endpoints document theirs.
+
+**Actual.** The reference gives the path and the `event_types` filter. The
+fields come only from the sample, which reads `attributes.event_type` (such as
+`motion.human` or `ding`) and `attributes.start`. SASH's first backfill read
+`start_time`, a guess, and would have skipped every real row. The filter is not
+honoured by the Playground, pages arrive through `links.next` as `page[key]`,
+and nothing says whether a history row's id matches the webhook that delivered
+the same event.
+
+**Severity.** Medium. A wrong guess fails silently: the backfill finds nothing
+and reports nothing wrong.
+
+**Workaround.** `backfill_vehicle_history` reads `start` in epoch milliseconds,
+follows `page[key]` until a page comes back empty, re-sends the filter on every
+page and applies type and time window to every row itself. A history row is
+matched one-to-one against vehicle events already received by webhook within
+ten seconds, so a restart counts no car twice and a burst of two cars stays two.
+`tests/test_ring_contract.py` pins all of it, and the simulator now serves the
+same shape and ignores the filter the same way.
+
+**Suggestion.** Document the row schema, the filter's semantics, the time-range
+parameters, pagination and retention, and say whether history ids equal webhook
+`data.id`, so partners can deduplicate exactly.
+
+---
+
+## 14. Which motion sub-type arrives depends on a setting a partner cannot read
+
+**Task.** Keep vehicle motion and nothing else.
+
+**Steps.** Read the Motion Detection reference: `sub_type` is one of `motion`,
+`human`, `vehicle`, `other_motion`.
+
+**Expected.** A classification a partner can rely on.
+
+**Actual.** Ring classifies motion only when the owner has Smart Alerts on.
+With them off, every motion event is plain `motion`, so a vehicle-only
+integration receives no vehicle at all, and nothing on the device or
+configuration resources says the setting is off.
+
+**Severity.** Medium. The failure is a quiet street, which looks like data.
+
+**Workaround.** SASH still stores only `vehicle`, but counts unclassified
+motion, keeping only the count and the hour of the latest, from webhooks and
+from Event History. When no vehicle has arrived and unclassified motion has,
+the Setup tab says that Smart Alerts look off and asks the household to turn
+on vehicle alerts for that camera, instead of blaming the motion zone.
+
+**Suggestion.** Expose the Smart Alerts state per camera in its configuration
+resource, so an integration can explain a missing classification before the
+first event.
 
 ---
 
